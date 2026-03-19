@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Betclic — Price Chart</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
+        onerror="document.getElementById('debug-bar').textContent='FATAL: Chart.js CDN failed to load'"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"
+        onerror="document.getElementById('debug-bar').textContent='FATAL: chartjs-adapter-date-fns CDN failed to load'"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:      #060a0f;
+  --bg2:     #0c1420;
+  --bg3:     #111d2e;
+  --border:  #1a2e45;
+  --accent:  #ffb300;
+  --text:    #8ab4d4;
+  --text-hi: #cde4f7;
+  --green:   #00e676;
+  --red:     #ff4f4f;
+}
+body {
+  background:var(--bg); color:var(--text);
+  font-family:'Fira Mono','Cascadia Code','Consolas',monospace;
+  font-size:12px; height:100vh; display:flex; flex-direction:column;
+  overflow:hidden;
+}
+#topbar {
+  display:flex; align-items:center; gap:10px; padding:8px 14px;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  flex-shrink:0; flex-wrap:wrap;
+}
+.logo { color:var(--accent); font-weight:700; font-size:13px; letter-spacing:.06em; }
+.logo span { color:var(--text); font-weight:400; font-size:11px; }
+#dot { width:8px; height:8px; border-radius:50%; background:#2a4060; flex-shrink:0; }
+#dot.live { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
+#dot.err  { background:var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.ctrl {
+  background:var(--bg3); border:1px solid var(--border); color:var(--text);
+  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; cursor:pointer;
+}
+.ctrl:focus,.ctrl:hover { border-color:var(--accent); }
+#topbar input.ctrl { width:190px; }
+#main { flex:1; display:flex; overflow:hidden; }
+#sidebar {
+  width:260px; flex-shrink:0; background:var(--bg2);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+#sidebar-head {
+  padding:8px 10px; border-bottom:1px solid var(--border);
+  font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+}
+#match-search {
+  background:var(--bg3); border:0; border-bottom:1px solid var(--border);
+  color:var(--text-hi); font-family:inherit; font-size:11px;
+  padding:7px 10px; outline:none; width:100%;
+}
+#match-search:focus { border-bottom-color:var(--accent); }
+#match-list { flex:1; overflow-y:auto; }
+.match-item {
+  padding:6px 10px; cursor:pointer;
+  border-bottom:1px solid rgba(26,46,69,.3);
+  display:flex; flex-direction:column; gap:2px;
+}
+.match-item:hover  { background:rgba(255,179,0,.04); }
+.match-item.active { background:rgba(255,179,0,.08); border-left:2px solid var(--accent); }
+.mi-name { color:var(--text-hi); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mi-comp { color:#3a6080; font-size:9px; }
+.mi-live {
+  display:inline-block; background:var(--green); color:#000;
+  font-size:7px; font-weight:700; padding:1px 4px; margin-right:4px; vertical-align:middle;
+}
+#right { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+#sel-bar {
+  display:flex; align-items:center; gap:6px; padding:8px 14px;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  flex-wrap:wrap; flex-shrink:0; min-height:38px;
+}
+.sel-pill {
+  background:var(--bg3); border:1px solid var(--border); color:var(--text);
+  font-family:inherit; font-size:10px; padding:3px 10px; cursor:pointer;
+}
+.sel-pill:hover  { border-color:var(--accent); color:var(--text-hi); }
+.sel-pill.active { border-color:var(--accent); color:var(--accent); background:rgba(255,179,0,.06); }
+#chart-info {
+  display:flex; gap:16px; align-items:center; padding:6px 14px;
+  background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.ci-label { color:#3a6080; font-size:10px; }
+.ci-val   { color:var(--text-hi); font-size:12px; font-weight:600; }
+.ci-val.up   { color:var(--green); }
+.ci-val.down { color:var(--red); }
+#ci-live-badge {
+  background:var(--green); color:#000; font-size:8px;
+  font-weight:700; padding:1px 5px; display:none;
+}
+#ci-count { margin-left:auto; color:#3a6080; font-size:10px; }
+
+/* debug bar */
+#debug-bar {
+  padding:3px 14px; background:#060a0f; border-bottom:1px solid #0c1420;
+  font-size:9px; color:#2a4060; flex-shrink:0; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+}
+#debug-bar b { color:#3a6080; }
+
+#chart-wrap { flex:1; position:relative; padding:14px; overflow:hidden; }
+canvas#chart { display:block; width:100% !important; height:100% !important; }
+#no-sel {
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:10px;
+  color:#2a4060; font-size:13px; pointer-events:none;
+}
+#no-sel .hint { font-size:10px; color:#1a2e45; }
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#2a4060; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">BETCLIC <span>/ Price Chart</span></div>
+  <span id="dot"></span>
+  <input id="api-url" class="ctrl" value="http://localhost:5003">
+  <button class="ctrl" onclick="reconnect()">↺ Connect</button>
+  <select id="sel-market" class="ctrl" onchange="onMarketChange()">
+    <option value="1X2">1X2</option>
+    <option value="O/U">O/U</option>
+  </select>
+  <select id="sel-window" class="ctrl" onchange="redrawChart()">
+    <option value="300">5 min</option>
+    <option value="900">15 min</option>
+    <option value="3600" selected>1 hour</option>
+    <option value="86400">24 hours</option>
+    <option value="0">All</option>
+  </select>
+  <button class="ctrl" onclick="clearSeries()">✕ Clear series</button>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div id="sidebar-head">Active matches</div>
+    <input id="match-search" placeholder="Filter matches…" oninput="filterMatches()">
+    <div id="match-list"></div>
+  </div>
+  <div id="right">
+    <div id="sel-bar">
+      <span style="color:#3a6080;font-size:10px">&#8592; pick a match</span>
+    </div>
+    <div id="chart-info">
+      <div><span class="ci-label">Current </span><span class="ci-val" id="ci-cur">—</span></div>
+      <div><span class="ci-label">Min </span><span class="ci-val" id="ci-min">—</span></div>
+      <div><span class="ci-label">Max </span><span class="ci-val" id="ci-max">—</span></div>
+      <div><span class="ci-label">&#916; </span><span class="ci-val" id="ci-delta">—</span></div>
+      <span id="ci-live-badge">LIVE</span>
+      <span id="ci-count">0 pts</span>
+    </div>
+    <div id="debug-bar">no selection</div>
+    <div id="chart-wrap">
+      <canvas id="chart"></canvas>
+      <div id="no-sel">
+        <div>Select a match, then a selection</div>
+        <div class="hint">Price history will appear here</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// meta[mid]              = { match, competition, date, live, … }
+// history[mid][mkt][sel] = [ {ts:ms, odd}, … ]   (always ms, oldest→newest)
+// ─────────────────────────────────────────────────────────────────────────────
+const meta    = {};
+const history = {};
+
+let selectedMid = null;   // currently selected match id string
+let selectedSel = null;   // currently selected selection name string
+let chartObj    = null;
+let es          = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONNECT
+// ─────────────────────────────────────────────────────────────────────────────
+function getBase() { return document.getElementById('api-url').value.replace(/\/$/,''); }
+
+async function reconnect() {
+  if (es) { es.close(); es = null; }
+  setStatus('connecting');
+
+  // Step 1 — REST bootstrap: get names + current odds before SSE opens.
+  // This is why 95% of matches were showing as raw IDs in the old version —
+  // the old chart never called /markets at all.
+  try {
+    const [rM, rP] = await Promise.all([
+      fetch(getBase() + '/markets'),
+      fetch(getBase() + '/prices'),
+    ]);
+    const metaBody   = await rM.json();
+    const pricesBody = await rP.json();
+
+    for (const [mid, m] of Object.entries(metaBody)) {
+      meta[mid] = Object.assign(meta[mid] || {}, m);
+    }
+
+    const nowMs = Date.now();
+    for (const [mid, markets] of Object.entries(pricesBody)) {
+      for (const [mkt, odds] of Object.entries(markets)) {
+        for (const [sel, odd] of Object.entries(odds)) {
+          addPoint(mid, mkt, sel, odd, nowMs);
+        }
+      }
+      upsertItem(mid);
+    }
+    filterMatches();
+  } catch(e) { console.warn('bootstrap failed:', e); }
+
+  // Step 2 — SSE
+  es = new EventSource(getBase() + '/stream');
+  es.onopen  = () => setStatus('live');
+  es.onerror = () => { setStatus('err'); setTimeout(reconnect, 4000); };
+  es.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.type === 'price')    onPrice(m);
+    if (m.type === 'snapshot') onSnapshot(m);
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTORY HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function addPoint(mid, mkt, sel, odd, tsMs) {
+  if (!history[mid])       history[mid]       = {};
+  if (!history[mid][mkt])  history[mid][mkt]  = {};
+  if (!history[mid][mkt][sel]) history[mid][mkt][sel] = [];
+  const arr  = history[mid][mkt][sel];
+  const last = arr[arr.length - 1];
+  if (!last || tsMs > last.ts) {
+    arr.push({ ts: tsMs, odd });
+    if (arr.length > 3000) arr.shift();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SSE HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+function onPrice(msg) {
+  const mid   = String(msg.match_id);
+  const mkt   = msg.market;
+  const odds  = msg.odds || {};
+  // Backend sends ts as Unix seconds — convert to ms
+  const tsMs  = msg.ts ? msg.ts * 1000 : Date.now();
+
+  // Meta arrives on every price event — this fills in names for the ~95%
+  // of matches that weren't in /markets yet (race condition at startup)
+  if (msg.meta && msg.meta.match) {
+    meta[mid] = Object.assign(meta[mid] || {}, msg.meta);
+    upsertItem(mid);   // re-render sidebar item with real name
+  }
+
+  // Record all selections
+  for (const [sel, odd] of Object.entries(odds)) {
+    addPoint(mid, mkt, sel, odd, tsMs);
+  }
+
+  // If active match+market: refresh pills + append live point
+  if (mid === selectedMid && mkt === getMarket()) {
+    renderSelPills();
+    if (selectedSel !== null && odds[selectedSel] !== undefined) {
+      appendPoint(tsMs, odds[selectedSel]);
+    }
+  }
+}
+
+function onSnapshot(msg) {
+  const nowMs = Date.now();
+  for (const [mid, markets] of Object.entries(msg.prices || {})) {
+    for (const [mkt, odds] of Object.entries(markets)) {
+      for (const [sel, odd] of Object.entries(odds)) {
+        addPoint(mid, mkt, sel, odd, nowMs);
+      }
+    }
+    upsertItem(mid);
+  }
+  filterMatches();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SIDEBAR
+// ─────────────────────────────────────────────────────────────────────────────
+function upsertItem(mid) {
+  const m    = meta[mid] || {};
+  const name = m.match || mid;   // falls back to ID only if meta not yet received
+  let el = document.getElementById('mi-' + mid);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'match-item';
+    el.id = 'mi-' + mid;
+    el.onclick = () => selectMatch(mid);
+    document.getElementById('match-list').appendChild(el);
+  }
+  el.dataset.name = name.toLowerCase();
+  el.dataset.comp = (m.competition || '').toLowerCase();
+  el.innerHTML =
+    '<div class="mi-name">' +
+      (m.live ? '<span class="mi-live">LIVE</span>' : '') +
+      esc(name) +
+    '</div>' +
+    '<div class="mi-comp">' + esc(m.competition || '') + '</div>';
+}
+
+function filterMatches() {
+  const q = document.getElementById('match-search').value.toLowerCase().trim();
+  document.querySelectorAll('.match-item').forEach(el => {
+    const show = !q || el.dataset.name.includes(q) || el.dataset.comp.includes(q);
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MATCH SELECTION
+// ─────────────────────────────────────────────────────────────────────────────
+function selectMatch(mid) {
+  selectedMid = mid;
+  selectedSel = null;
+
+  document.querySelectorAll('.match-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('mi-' + mid);
+  if (el) el.classList.add('active');
+
+  const m = meta[mid] || {};
+  document.getElementById('ci-live-badge').style.display = m.live ? 'inline-block' : 'none';
+
+  resetChart();
+  renderSelPills();
+}
+
+function getMarket() { return document.getElementById('sel-market').value; }
+
+function onMarketChange() {
+  if (!selectedMid) return;
+  selectedSel = null;
+  resetChart();
+  renderSelPills();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SELECTION PILLS
+// ─────────────────────────────────────────────────────────────────────────────
+function renderSelPills() {
+  if (!selectedMid) return;
+  const mkt  = getMarket();
+  const sels = Object.keys((history[selectedMid] || {})[mkt] || {});
+  const bar  = document.getElementById('sel-bar');
+  bar.innerHTML = '';
+
+  if (!sels.length) {
+    bar.innerHTML = '<span style="color:#2a4060;font-size:10px">No data yet — waiting for price events…</span>';
+    return;
+  }
+
+  const lbl = document.createElement('span');
+  lbl.style.cssText = 'color:#3a6080;font-size:10px;margin-right:4px';
+  lbl.textContent = 'Selection:';
+  bar.appendChild(lbl);
+
+  for (const sel of sels) {
+    const btn = document.createElement('button');
+    btn.className = 'sel-pill' + (sel === selectedSel ? ' active' : '');
+    btn.textContent = sel;
+    btn.addEventListener('click', () => onPillClick(sel));
+    bar.appendChild(btn);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PILL CLICK — one clean async function, no duplication
+// ─────────────────────────────────────────────────────────────────────────────
+async function onPillClick(sel) {
+  selectedSel = sel;
+
+  document.querySelectorAll('.sel-pill').forEach(p =>
+    p.classList.toggle('active', p.textContent === sel)
+  );
+  document.getElementById('no-sel').style.display = 'none';
+
+  const mkt     = getMarket();
+  const inMem   = ((history[selectedMid] || {})[mkt] || {})[sel] || [];
+  dbg(`pill="${sel}" mkt=${mkt} mid=${selectedMid} — RAM: ${inMem.length} pts — fetching SQLite…`);
+
+  await fetchDbHistory(selectedMid, sel, mkt);
+
+  const afterDb = ((history[selectedMid] || {})[mkt] || {})[sel] || [];
+  dbg(`after DB fetch: ${afterDb.length} pts total — drawing…`);
+
+  drawChart();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHART
+// ─────────────────────────────────────────────────────────────────────────────
+function initChart() {
+  try {
+    if (chartObj) { chartObj.destroy(); chartObj = null; }
+    const canvas = document.getElementById('chart');
+    if (!canvas) { dbg('ERROR: canvas#chart not found in DOM'); return; }
+    const ctx = canvas.getContext('2d');
+    if (!ctx)    { dbg('ERROR: could not get 2d context from canvas'); return; }
+    if (typeof Chart === 'undefined') {
+      dbg('ERROR: Chart.js not loaded — check CDN / network');
+      return;
+    }
+    chartObj = new Chart(ctx, {
+      type: 'line',
+      data: { datasets:[{
+        label:'', data:[],
+        borderColor:'#ffb300', backgroundColor:'rgba(255,179,0,.06)',
+        borderWidth:1.5,
+        pointRadius:2, pointHoverRadius:4,
+        tension:0, fill:true,
+      }]},
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{
+          legend:{ display:false },
+          tooltip:{
+            backgroundColor:'#0c1420', borderColor:'#1a2e45', borderWidth:1,
+            titleColor:'#8ab4d4', bodyColor:'#ffb300',
+            callbacks:{
+              title: items => new Date(items[0].parsed.x)
+                .toLocaleTimeString('fr-FR',{hour12:false}),
+              label: item  => ' ' + item.parsed.y.toFixed(3),
+            }
+          }
+        },
+        scales:{
+          x:{
+            type:'time',
+            time:{ unit:'minute', displayFormats:{ minute:'HH:mm', second:'HH:mm:ss' } },
+            grid:{ color:'rgba(26,46,69,.4)' },
+            ticks:{ color:'#2a6080', font:{ family:'Fira Mono', size:10 }, maxTicksLimit:10 },
+          },
+          y:{
+            position:'right',
+            grid:{ color:'rgba(26,46,69,.4)' },
+            ticks:{ color:'#2a6080', font:{ family:'Fira Mono', size:10 },
+                    callback: v => v.toFixed(2) },
+          }
+        }
+      }
+    });
+    dbg(`chart initialised OK — canvas ${canvas.offsetWidth}×${canvas.offsetHeight}px`);
+  } catch(e) {
+    dbg('ERROR in initChart: ' + e.message);
+    console.error('[chart] initChart threw:', e);
+    chartObj = null;
+  }
+}
+
+function resetChart() {
+  initChart();
+  updateInfoBar([]);
+  document.getElementById('no-sel').style.display = 'flex';
+}
+
+function drawChart() {
+  if (!selectedMid) { dbg('drawChart: no match selected'); return; }
+  if (!selectedSel) { dbg('drawChart: no selection'); return; }
+  if (!chartObj)    { dbg('drawChart: chartObj is null — initChart failed, check error above'); return; }
+
+  const mkt    = getMarket();
+  const winMs  = parseInt(document.getElementById('sel-window').value) * 1000;
+  const cutoff = winMs > 0 ? Date.now() - winMs : 0;
+  const raw    = ((history[selectedMid] || {})[mkt] || {})[selectedSel] || [];
+  const pts    = raw.filter(p => p.ts >= cutoff).map(p => ({ x:p.ts, y:p.odd }));
+
+  // ── Debug bar ──────────────────────────────────────────────────────────────
+  const allKeys  = Object.keys((history[selectedMid] || {})[mkt] || {});
+  const rawTotal = raw.length;
+  const oldest   = raw.length ? new Date(raw[0].ts).toLocaleTimeString('fr-FR',{hour12:false}) : '—';
+  const newest   = raw.length ? new Date(raw[raw.length-1].ts).toLocaleTimeString('fr-FR',{hour12:false}) : '—';
+  dbg(
+    `mid=${selectedMid} | mkt=${mkt} | sel="${selectedSel}" | ` +
+    `raw=${rawTotal} pts | window_filtered=${pts.length} pts | ` +
+    `oldest=${oldest} newest=${newest} | ` +
+    `all_sels=[${allKeys.join(', ')}]`
+  );
+
+  // Adjust point radius: show dots when data is sparse
+  const pr = pts.length <= 5 ? 4 : pts.length <= 30 ? 2 : 0;
+  chartObj.data.datasets[0].pointRadius = pr;
+
+  chartObj.data.datasets[0].label = selectedSel;
+  chartObj.data.datasets[0].data  = pts;
+  chartObj.update('none');
+  updateInfoBar(pts);
+
+  document.getElementById('no-sel').style.display = 'none';
+}
+
+function appendPoint(tsMs, odd) {
+  if (!chartObj || selectedSel === null) return;
+  const winMs  = parseInt(document.getElementById('sel-window').value) * 1000;
+  const cutoff = winMs > 0 ? Date.now() - winMs : 0;
+  const ds     = chartObj.data.datasets[0];
+  ds.data.push({ x:tsMs, y:odd });
+  if (winMs > 0) ds.data = ds.data.filter(p => p.x >= cutoff);
+  // Adjust point radius dynamically
+  ds.pointRadius = ds.data.length <= 5 ? 4 : ds.data.length <= 30 ? 2 : 0;
+  chartObj.update('none');
+  updateInfoBar(ds.data);
+  dbg(`live append: sel="${selectedSel}" odd=${odd} — chart now ${ds.data.length} pts`);
+}
+
+function redrawChart() { if (selectedSel) drawChart(); }
+
+function clearSeries() {
+  if (!selectedMid || !selectedSel) return;
+  const mkt = getMarket();
+  if (history[selectedMid] && history[selectedMid][mkt]) {
+    history[selectedMid][mkt][selectedSel] = [];
+  }
+  resetChart();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INFO BAR
+// ─────────────────────────────────────────────────────────────────────────────
+function updateInfoBar(pts) {
+  if (!pts || !pts.length) {
+    ['ci-cur','ci-min','ci-max','ci-delta'].forEach(id => {
+      const el = document.getElementById(id);
+      el.textContent = '—'; el.className = 'ci-val';
+    });
+    document.getElementById('ci-count').textContent = '0 pts';
+    return;
+  }
+  const vals  = pts.map(p => p.y);
+  const cur   = vals[vals.length - 1];
+  const delta = cur - vals[0];
+  document.getElementById('ci-cur').textContent  = cur.toFixed(3);
+  document.getElementById('ci-min').textContent  = Math.min(...vals).toFixed(3);
+  document.getElementById('ci-max').textContent  = Math.max(...vals).toFixed(3);
+  const dEl = document.getElementById('ci-delta');
+  dEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(3);
+  dEl.className   = 'ci-val ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : '');
+  document.getElementById('ci-count').textContent = pts.length + ' pts';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SQLITE HISTORY
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchDbHistory(mid, sel, mkt) {
+  try {
+    const url = `${getBase()}/history`
+      + `?match_id=${encodeURIComponent(mid)}`
+      + `&selection=${encodeURIComponent(sel)}`
+      + `&market=${encodeURIComponent(mkt)}`
+      + `&limit=2000`;
+    const r = await fetch(url);
+    if (!r.ok) return;
+    const rows = await r.json();
+    if (!rows.length) return;
+
+    if (!history[mid])       history[mid]       = {};
+    if (!history[mid][mkt])  history[mid][mkt]  = {};
+    const arr    = history[mid][mkt][sel] = history[mid][mkt][sel] || [];
+    const oldest = arr.length ? arr[0].ts : Infinity;
+
+    // Only prepend rows older than what we already have in RAM
+    const dbPts = rows
+      .map(r => ({ ts: r.ts * 1000, odd: r.odd }))
+      .filter(p => p.ts < oldest);
+
+    if (dbPts.length) history[mid][mkt][sel] = [...dbPts, ...arr];
+  } catch(e) { console.warn('fetchDbHistory:', e); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────────────────────
+function dbg(msg) {
+  const el = document.getElementById('debug-bar');
+  if (el) el.textContent = new Date().toLocaleTimeString('fr-FR',{hour12:false}) + '  ' + msg;
+  console.log('[chart]', msg);
+}
+
+function setStatus(s) {
+  const d = document.getElementById('dot');
+  d.className = s === 'live' ? 'live' : s === 'err' ? 'err' : '';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+initChart();   // warm up — verifies Chart.js loaded OK
+reconnect();
+</script>
+</body>
+</html>

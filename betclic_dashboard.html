@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Betclic — 1X2 Dashboard</title>
+<style>
+/* ── RESET & BASE ───────────────────────────────────────────── */
+*  { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:       #060a0f;
+  --bg2:      #0c1420;
+  --bg3:      #111d2e;
+  --border:   #1a2e45;
+  --accent:   #ffb300;
+  --blue:     #0096ff;
+  --text:     #8ab4d4;
+  --text-hi:  #cde4f7;
+  --green:    #00e676;
+  --red:      #ff4f4f;
+  --live-clr: #00e676;
+}
+body {
+  background:var(--bg); color:var(--text);
+  font-family:'Fira Mono','Cascadia Code','Consolas',monospace;
+  font-size:12px; min-height:100vh; display:flex; flex-direction:column;
+}
+
+/* ── TOP BAR ────────────────────────────────────────────────── */
+#topbar {
+  display:flex; align-items:center; gap:12px; padding:10px 16px;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  flex-shrink:0; flex-wrap:wrap; position:sticky; top:0; z-index:100;
+}
+.logo { color:var(--accent); font-weight:700; font-size:14px; letter-spacing:.07em; }
+.logo span { color:var(--text); font-weight:400; font-size:11px; }
+
+#dot { width:9px; height:9px; border-radius:50%; background:#2a4060; flex-shrink:0; }
+#dot.live { background:var(--green); box-shadow:0 0 7px var(--green); animation:pulse 2s infinite; }
+#dot.err  { background:var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+#conn-label { font-size:11px; }
+
+.ctrl {
+  background:var(--bg3); border:1px solid var(--border); color:var(--text);
+  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; cursor:pointer;
+}
+.ctrl:focus, .ctrl:hover { border-color:var(--accent); }
+
+button.ctrl { cursor:pointer; }
+button.ctrl:hover { color:var(--text-hi); }
+
+#stats {
+  margin-left:auto; font-size:10px; color:#3a6080;
+  display:flex; gap:14px; white-space:nowrap;
+}
+#stats b { color:var(--accent); }
+
+/* ── SEARCH & FILTERS ──────────────────────────────────────── */
+#toolbar {
+  display:flex; gap:8px; align-items:center; padding:8px 16px;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+#search {
+  background:var(--bg3); border:1px solid var(--border); color:var(--text-hi);
+  font-family:inherit; font-size:11px; padding:5px 10px; outline:none; width:220px;
+}
+#search:focus { border-color:var(--accent); }
+.pill {
+  background:var(--bg3); border:1px solid var(--border); color:var(--text);
+  font-family:inherit; font-size:10px; padding:3px 9px; cursor:pointer;
+}
+.pill:hover  { border-color:var(--accent); color:var(--text-hi); }
+.pill.active { border-color:var(--accent); color:var(--accent); background:rgba(255,179,0,.06); }
+#count-label { color:#3a6080; font-size:10px; margin-left:auto; }
+
+/* ── GRID ───────────────────────────────────────────────────── */
+#grid {
+  flex:1; padding:10px 16px;
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px,1fr));
+  gap:8px;
+  align-content:start;
+}
+
+/* ── MATCH CARD ─────────────────────────────────────────────── */
+.card {
+  background:var(--bg2); border:1px solid var(--border);
+  padding:0; overflow:hidden;
+  transition:border-color .15s;
+}
+.card:hover { border-color:#2a4060; }
+
+.card-header {
+  display:flex; align-items:center; gap:6px;
+  padding:7px 10px 5px;
+  border-bottom:1px solid var(--border);
+}
+.card-match {
+  color:var(--text-hi); font-size:11px; font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;
+}
+.card-comp {
+  color:#3a6080; font-size:9px; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:110px;
+}
+
+/* LIVE badge */
+.live-badge {
+  background:var(--green); color:#000; font-size:8px; font-weight:700;
+  padding:1px 5px; flex-shrink:0;
+}
+/* Date */
+.card-date { color:#2a4060; font-size:9px; white-space:nowrap; }
+
+/* Odds row */
+.odds-row {
+  display:grid; grid-template-columns:1fr 1fr 1fr;
+  gap:1px; padding:6px;
+  background:var(--border);
+}
+.odds-cell {
+  background:var(--bg3); padding:6px 4px; text-align:center;
+  display:flex; flex-direction:column; gap:2px; position:relative;
+  overflow:hidden;
+}
+.sel-label {
+  color:#3a6080; font-size:9px; text-transform:uppercase;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.sel-odd {
+  color:var(--text-hi); font-size:15px; font-weight:600; letter-spacing:.02em;
+  transition:color .1s;
+}
+.sel-odd.no-data { color:#2a4060; font-size:13px; }
+
+/* flash overlays */
+.flash-up, .flash-down {
+  position:absolute; inset:0; pointer-events:none; opacity:0;
+}
+.flash-up   { background:rgba(0,230,118,.18); }
+.flash-down { background:rgba(255,79,79,.18); }
+
+@keyframes flash-anim {
+  0%   { opacity:1; }
+  100% { opacity:0; }
+}
+.flashing-up   .flash-up   { animation: flash-anim .6s ease-out forwards; }
+.flashing-down .flash-down { animation: flash-anim .6s ease-out forwards; }
+
+/* trend arrow next to odd */
+.trend { font-size:9px; display:inline-block; margin-left:2px; }
+.trend.up   { color:var(--green); }
+.trend.down { color:var(--red); }
+
+/* card footer */
+.card-footer {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:4px 10px; border-top:1px solid rgba(26,46,69,.5);
+}
+.card-mid  { color:#2a4060; font-size:9px; }
+.card-age  { color:#2a4060; font-size:9px; }
+
+/* live score bar */
+.score-bar {
+  display:flex; align-items:center; gap:8px;
+  padding:4px 10px; border-top:1px solid rgba(26,46,69,.5);
+  font-size:10px; min-height:22px;
+}
+.score-val  { color:#00e676; font-weight:700; font-size:13px; letter-spacing:.05em; }
+.period-val { color:#ffb300; font-size:9px; }
+.minute-val { color:#3a6080; font-size:9px; }
+
+/* empty state */
+#empty {
+  grid-column:1/-1; text-align:center; padding:80px 0;
+  color:#2a4060; font-size:13px; display:none;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#2a4060; border-radius:3px; }
+</style>
+</head>
+<body>
+
+<!-- ── TOP BAR ──────────────────────────────────────────────── -->
+<div id="topbar">
+  <div class="logo">BETCLIC <span>/ 1X2 Dashboard</span></div>
+  <span id="dot"></span>
+  <span id="conn-label">—</span>
+  <input id="api-url" class="ctrl" style="width:190px" value="http://localhost:5003">
+  <button class="ctrl" onclick="reconnect()">↺ Connect</button>
+  <div id="stats">
+    <span>Matches: <b id="st-matches">0</b></span>
+    <span>Updates: <b id="st-updates">0</b></span>
+    <span>Streams: <b id="st-streams">0</b></span>
+  </div>
+</div>
+
+<!-- ── TOOLBAR ──────────────────────────────────────────────── -->
+<div id="toolbar">
+  <input id="search" placeholder="Search match or competition…" oninput="applyFilters()">
+  <button class="pill active" data-filter="all"      onclick="setFilter(this)">All</button>
+  <button class="pill"        data-filter="live"     onclick="setFilter(this)">Live</button>
+  <button class="pill"        data-filter="prematch" onclick="setFilter(this)">Pre-match</button>
+  <span id="count-label">0 matches</span>
+</div>
+
+<!-- ── GRID ─────────────────────────────────────────────────── -->
+<div id="grid">
+  <div id="empty">Waiting for data…</div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const matchState = {};   // matchState[match_id] = { meta, odds:{sel:odd}, prevOdds, lastTs, cardEl }
+let activeFilter = 'all';
+let es = null;
+let updateCount = 0;
+
+// ── CONNECTION ─────────────────────────────────────────────────────────────
+function getBase() { return document.getElementById('api-url').value.replace(/\/$/,''); }
+
+async function reconnect() {
+  if (es) { es.close(); es = null; }
+  setStatus('connecting');
+
+  // ── Step 1: pre-populate all known matches from /markets ─────────────────
+  // This is independent of whether a price frame has arrived yet.
+  // Cards get created here with "—" odds; SSE updates fill them in.
+  try {
+    const [marketsRes, pricesRes] = await Promise.all([
+      fetch(getBase() + '/markets'),
+      fetch(getBase() + '/prices'),
+    ]);
+    const markets = await marketsRes.json();   // {mid: {match, competition, date, live, teams}}
+    const prices  = await pricesRes.json();    // {mid: {market: {sel: odd}}}
+
+    for (const [mid, meta] of Object.entries(markets)) {
+      _ensureMatchState(mid, meta);
+      // Seed odds from /prices if already available
+      const mktOdds = (prices[mid] || {})['1X2'];
+      if (mktOdds) Object.assign(matchState[mid].odds, mktOdds);
+      _ensureCard(mid);
+      updateCard(mid);
+    }
+    // Also create cards for price-only entries not yet in /markets
+    for (const [mid, mktMap] of Object.entries(prices)) {
+      if (matchState[mid] && matchState[mid].cardEl) continue;
+      _ensureMatchState(mid, {});
+      const mktOdds = mktMap['1X2'];
+      if (mktOdds) Object.assign(matchState[mid].odds, mktOdds);
+      _ensureCard(mid);
+      updateCard(mid);
+    }
+    applyFilters();
+  } catch (err) {
+    console.warn('[betclic] bootstrap failed:', err);
+  }
+
+  // ── Step 2: open SSE for live updates ────────────────────────────────────
+  es = new EventSource(getBase() + '/stream');
+  es.onopen  = () => { setStatus('live'); startStatsPoll(); };
+  es.onerror = () => { setStatus('err'); setTimeout(reconnect, 4000); };
+  es.onmessage = (e) => {
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.type === 'price')    handlePrice(msg);
+    if (msg.type === 'snapshot') handleSnapshot(msg);
+  };
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function _ensureMatchState(mid, meta) {
+  if (!matchState[mid]) {
+    matchState[mid] = { meta: {}, odds: {}, prevOdds: {}, lastTs: Date.now() };
+  }
+  Object.assign(matchState[mid].meta, meta);
+}
+
+function _ensureCard(mid) {
+  if (!matchState[mid].cardEl) {
+    matchState[mid].cardEl = createCard(mid);
+    document.getElementById('grid').appendChild(matchState[mid].cardEl);
+    document.getElementById('empty').style.display = 'none';
+  }
+}
+
+// ── PRICE EVENT ────────────────────────────────────────────────────────────
+function handlePrice(msg) {
+  if (msg.market !== '1X2') return;
+  const mid = String(msg.match_id);
+  updateCount++;
+  document.getElementById('st-updates').textContent = updateCount;
+
+  _ensureMatchState(mid, msg.meta || {});
+  const ms  = matchState[mid];
+  ms.lastTs = Date.now();
+  Object.assign(ms.prevOdds, ms.odds);
+  Object.assign(ms.odds, msg.odds);
+
+  // Authoritative live state arrives on every frame
+  if (msg.live  !== undefined) ms.meta.live   = msg.live;
+  if (msg.score !== undefined) ms.meta.score  = msg.score;
+  if (msg.period !== undefined && msg.period) ms.meta.period = msg.period;
+  if (msg.minute !== undefined && msg.minute) ms.meta.minute = msg.minute;
+
+  _ensureCard(mid);
+  updateCard(mid);
+  applyFilters();
+}
+
+// ── SNAPSHOT (SSE supplement — fills any gaps the bootstrap missed) ──────
+function handleSnapshot(msg) {
+  const prices = msg.prices || {};
+  for (const [mid, markets] of Object.entries(prices)) {
+    _ensureMatchState(mid, {});
+    const ms = matchState[mid];
+    const mktOdds = markets['1X2'];
+    if (mktOdds) Object.assign(ms.odds, mktOdds);
+    _ensureCard(mid);
+    updateCard(mid);
+  }
+  applyFilters();
+}
+
+// ── CARD FACTORY ───────────────────────────────────────────────────────────
+function createCard(mid) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.dataset.mid = mid;
+  div.innerHTML = `
+    <div class="card-header">
+      <div class="card-match" id="cm-${mid}">—</div>
+      <div class="card-comp"  id="cc-${mid}"></div>
+      <div class="card-date"  id="cd-${mid}"></div>
+    </div>
+    <div class="odds-row">
+      ${makeCell(mid,'1')}
+      ${makeCell(mid,'Nul')}
+      ${makeCell(mid,'2')}
+    </div>
+    <div class="score-bar" id="sb-${mid}" style="display:none">
+      <span class="score-val"  id="sc-${mid}"></span>
+      <span class="period-val" id="pd-${mid}"></span>
+      <span class="minute-val" id="mn-${mid}"></span>
+    </div>
+    <div class="card-footer">
+      <span class="card-mid" id="cmid-${mid}">${mid}</span>
+      <span class="card-age" id="cage-${mid}">—</span>
+    </div>`;
+  return div;
+}
+
+function makeCell(mid, selKey) {
+  const id = cellId(mid, selKey);
+  return `
+    <div class="odds-cell" id="${id}">
+      <div class="sel-label">${selKey}</div>
+      <div class="sel-odd no-data" id="odd-${id}">—</div>
+      <div class="flash-up"></div>
+      <div class="flash-down"></div>
+    </div>`;
+}
+
+function cellId(mid, sel) {
+  return 'cell_' + mid + '_' + sel.replace(/[^a-zA-Z0-9]/g,'_');
+}
+
+// ── CARD UPDATE ────────────────────────────────────────────────────────────
+const LABELS = {
+  '1': 'Home', 'Nul': 'Draw', '2': 'Away',
+  'X': 'Draw',
+  // Betclic may use team names directly — we handle fallback below
+};
+
+function updateCard(mid) {
+  const ms   = matchState[mid];
+  const meta = ms.meta;
+
+  // Header
+  const matchEl = document.getElementById('cm-' + mid);
+  const compEl  = document.getElementById('cc-' + mid);
+  const dateEl  = document.getElementById('cd-' + mid);
+  const ageEl   = document.getElementById('cage-' + mid);
+
+  if (matchEl && meta.match) matchEl.textContent = meta.match;
+  if (compEl)  compEl.textContent  = meta.competition || '';
+  if (dateEl)  dateEl.textContent  = formatDate(meta.date);
+  if (ageEl)   ageEl.textContent   = timeAgo(ms.lastTs);
+
+  // Live badge — add/remove from header
+  const header = document.querySelector(`#card-${mid} .card-header`) ||
+                 ms.cardEl.querySelector('.card-header');
+  let liveBadge = ms.cardEl.querySelector('.live-badge');
+  if (meta.live && !liveBadge) {
+    liveBadge = document.createElement('span');
+    liveBadge.className = 'live-badge';
+    liveBadge.textContent = 'LIVE';
+    header.insertBefore(liveBadge, header.firstChild);
+  } else if (!meta.live && liveBadge) {
+    liveBadge.remove();
+  }
+
+  // Determine team names for labels
+  const teams = meta.teams || [];
+
+  // Odds — determine selection keys from current odds
+  const oddKeys = Object.keys(ms.odds);
+
+  // Map to display: if we have exactly 3 keys with 1/X/2 or named teams
+  const slots = resolveSlots(oddKeys, teams);
+
+  for (const [slotKey, selName] of Object.entries(slots)) {
+    const odd     = ms.odds[selName];
+    const prevOdd = ms.prevOdds[selName];
+    const cid     = cellId(mid, slotKey);
+    const cell    = document.getElementById(cid);
+    if (!cell) continue;
+
+    // Update label (may be a team name)
+    cell.querySelector('.sel-label').textContent =
+      LABELS[slotKey] || slotKey;
+
+    const oddEl = document.getElementById('odd-' + cid);
+    if (odd !== undefined) {
+      oddEl.textContent = odd.toFixed(2);
+      oddEl.classList.remove('no-data');
+
+      // Trend arrow
+      let trendHtml = '';
+      if (prevOdd !== undefined && prevOdd !== odd) {
+        const dir = odd > prevOdd ? 'up' : 'down';
+        trendHtml = `<span class="trend ${dir}">${dir==='up' ? '▲' : '▼'}</span>`;
+        flashCell(cell, dir);
+      }
+      oddEl.innerHTML = odd.toFixed(2) + trendHtml;
+    }
+  }
+
+  // Tag card for filter
+  ms.cardEl.dataset.live = meta.live ? '1' : '0';
+  ms.cardEl.dataset.matchname = (meta.match || '').toLowerCase();
+  ms.cardEl.dataset.comp      = (meta.competition || '').toLowerCase();
+
+  // ── Score bar (only shown for live matches with known score) ────────────
+  const sb = document.getElementById('sb-' + mid);
+  if (sb) {
+    const hasScore = meta.score !== undefined && meta.score !== null;
+    sb.style.display = (meta.live && hasScore) ? 'flex' : 'none';
+    if (hasScore) {
+      const sc = document.getElementById('sc-' + mid);
+      const pd = document.getElementById('pd-' + mid);
+      const mn = document.getElementById('mn-' + mid);
+      if (sc) sc.textContent = meta.score || '';
+      if (pd) pd.textContent = meta.period ? `[${meta.period}]` : '';
+      if (mn) mn.textContent = meta.minute ? `${meta.minute}'` : '';
+    }
+  }
+}
+
+// Resolve which selection key goes in which visual slot (1=Home, Nul=Draw, 2=Away)
+function resolveSlots(oddKeys, teams) {
+  // Standard Betclic keys
+  if (oddKeys.includes('1') || oddKeys.includes('X') || oddKeys.includes('2')) {
+    return { '1': '1', 'Nul': oddKeys.includes('Nul') ? 'Nul' : 'X', '2': '2' };
+  }
+  // Team names — assume [home, draw?, away] order
+  const sorted = [...oddKeys];
+  if (sorted.length === 2) return { '1': sorted[0], 'Nul': '', '2': sorted[1] };
+  if (sorted.length === 3) return { '1': sorted[0], 'Nul': sorted[1], '2': sorted[2] };
+  return {};
+}
+
+// ── FLASH ─────────────────────────────────────────────────────────────────
+function flashCell(cell, dir) {
+  cell.classList.remove('flashing-up', 'flashing-down');
+  void cell.offsetWidth;  // force reflow to restart animation
+  cell.classList.add(dir === 'up' ? 'flashing-up' : 'flashing-down');
+  setTimeout(() => cell.classList.remove('flashing-up','flashing-down'), 700);
+}
+
+// ── FILTERS ───────────────────────────────────────────────────────────────
+function setFilter(el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  activeFilter = el.dataset.filter;
+  applyFilters();
+}
+
+function applyFilters() {
+  const q    = document.getElementById('search').value.toLowerCase().trim();
+  let   vis  = 0;
+  for (const ms of Object.values(matchState)) {
+    if (!ms.cardEl) continue;
+    const card = ms.cardEl;
+    const live = card.dataset.live === '1';
+
+    let show = true;
+    if (activeFilter === 'live'     && !live)  show = false;
+    if (activeFilter === 'prematch' &&  live)  show = false;
+    if (q) {
+      const nm = card.dataset.matchname || '';
+      const cp = card.dataset.comp      || '';
+      if (!nm.includes(q) && !cp.includes(q)) show = false;
+    }
+    card.style.display = show ? '' : 'none';
+    if (show) vis++;
+  }
+  document.getElementById('count-label').textContent = `${vis} match${vis!==1?'es':''}`;
+  document.getElementById('empty').style.display =
+    vis === 0 && Object.keys(matchState).length > 0 ? 'block' : 'none';
+}
+
+// ── STATUS POLL ───────────────────────────────────────────────────────────
+let _statsPollId = null;
+function startStatsPoll() {
+  if (_statsPollId) return;
+  _statsPollId = setInterval(async () => {
+    try {
+      const r = await fetch(getBase() + '/status');
+      const d = await r.json();
+      document.getElementById('st-matches').textContent = d.matches  || 0;
+      document.getElementById('st-streams').textContent = d.streams  || 0;
+    } catch {}
+  }, 5000);
+}
+
+// ── RELATIVE TIME ─────────────────────────────────────────────────────────
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 5)  return 'just now';
+  if (s < 60) return s + 's ago';
+  return Math.floor(s/60) + 'm ago';
+}
+
+// Update age labels every 10 s
+setInterval(() => {
+  for (const [mid, ms] of Object.entries(matchState)) {
+    const el = document.getElementById('cage-' + mid);
+    if (el) el.textContent = timeAgo(ms.lastTs);
+  }
+}, 10000);
+
+function formatDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}) + ' ' +
+           d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+  } catch { return ''; }
+}
+
+// ── STATUS INDICATOR ──────────────────────────────────────────────────────
+function setStatus(s) {
+  const dot = document.getElementById('dot');
+  const lbl = document.getElementById('conn-label');
+  if (s === 'live')     { dot.className = 'live'; lbl.textContent = 'LIVE'; }
+  else if (s === 'err') { dot.className = 'err';  lbl.textContent = 'ERR — retrying'; }
+  else                  { dot.className = '';     lbl.textContent = 'connecting…'; }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+reconnect();
+</script>
+</body>
+</html>

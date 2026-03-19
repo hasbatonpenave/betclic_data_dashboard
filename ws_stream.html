@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Betclic — Raw Stream</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background:#060a0f; color:#8ab4d4;
+  font-family:'Fira Mono','Cascadia Code','Consolas',monospace;
+  font-size:12px; height:100vh; display:flex; flex-direction:column;
+  overflow:hidden;
+}
+
+/* ── TOP BAR ── */
+#bar {
+  display:flex; align-items:center; gap:10px; padding:8px 14px;
+  background:#0c1420; border-bottom:1px solid #1a2e45;
+  flex-shrink:0; flex-wrap:wrap;
+}
+.title { color:#ffb300; font-weight:700; font-size:13px; letter-spacing:.06em; }
+.title span { color:#8ab4d4; font-weight:400; font-size:11px; }
+
+#dot { width:8px; height:8px; border-radius:50%; background:#2a4060; flex-shrink:0; }
+#dot.live { background:#00e676; box-shadow:0 0 6px #00e676; animation:pulse 2s infinite; }
+#dot.err  { background:#ff4f4f; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+#dot-label { font-size:11px; }
+
+#bar input {
+  background:#111d2e; border:1px solid #1a2e45; color:#cde4f7;
+  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; width:190px;
+}
+#bar input:focus { border-color:#ffb300; }
+
+.b {
+  background:#111d2e; border:1px solid #1a2e45; color:#8ab4d4;
+  font-family:inherit; font-size:11px; padding:4px 10px; cursor:pointer;
+}
+.b:hover { border-color:#ffb300; color:#cde4f7; }
+
+#bar select {
+  background:#111d2e; border:1px solid #1a2e45; color:#8ab4d4;
+  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; cursor:pointer;
+}
+#bar select:focus { border-color:#ffb300; }
+
+#counter { margin-left:auto; font-size:11px; color:#3a6080; white-space:nowrap; }
+#eps     { color:#ffb300; font-weight:600; }
+
+/* ── FEED ── */
+#feed-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+#feed-wrap::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:30px;
+  background:linear-gradient(transparent, #060a0f); pointer-events:none;
+}
+#feed { flex:1; overflow-y:scroll; padding:4px 0; }
+
+.row {
+  display:grid;
+  grid-template-columns: 90px 76px 170px 1fr;
+  align-items:baseline;
+  padding:3px 0;
+  border-bottom:1px solid rgba(26,46,69,.2);
+  white-space:nowrap; overflow:hidden;
+}
+.row:hover { background:rgba(255,179,0,.03); }
+
+.c-ts   { color:#2a4060; font-size:10px; padding:0 8px; }
+.c-bdg  { padding:0 4px; }
+.c-mid  { color:#6ec6e6; font-size:11px; padding:0 10px;
+          overflow:hidden; text-overflow:ellipsis; }
+.c-raw  { color:#5a8aaa; font-size:11px; padding-right:12px;
+          overflow:hidden; text-overflow:ellipsis; }
+
+/* badges */
+.badge {
+  display:inline-block; font-size:9px; font-weight:700;
+  padding:1px 5px; vertical-align:middle;
+}
+.badge.price    { background:#ffb300; color:#000; }
+.badge.snapshot { background:#0096ff; color:#fff; }
+.badge.live     { background:#00e676; color:#000; }
+
+/* row tint */
+.row.is-live .c-mid { color:#00e676; }
+
+/* scrollbar */
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#2a4060; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <div class="title">BETCLIC <span>/ raw stream</span></div>
+  <span id="dot"></span>
+  <span id="dot-label">—</span>
+  <input id="api" value="http://localhost:5003">
+  <button class="b" onclick="reconnect()">↺ Connect</button>
+  <button class="b" id="btn-pause" onclick="togglePause()">⏸ Pause</button>
+  <select id="filter">
+    <option value="all">All events</option>
+    <option value="price">price only</option>
+    <option value="snapshot">snapshot only</option>
+  </select>
+  <select id="market-filter">
+    <option value="all">All markets</option>
+    <option value="1X2">1X2 only</option>
+    <option value="O/U">O/U only</option>
+  </select>
+  <button class="b" onclick="clearFeed()">✕ Clear</button>
+  <div id="counter">
+    <span id="eps">0</span>/s &nbsp;|&nbsp; <span id="total">0</span> events
+  </div>
+</div>
+
+<div id="feed-wrap">
+  <div id="feed"></div>
+</div>
+
+<script>
+let es       = null;
+let paused   = false;
+let total    = 0;
+let eps      = 0;
+const MAX_ROWS = 600;
+
+setInterval(() => {
+  document.getElementById('eps').textContent   = eps;
+  document.getElementById('total').textContent = total;
+  eps = 0;
+}, 1000);
+
+function getBase() { return document.getElementById('api').value.replace(/\/$/,''); }
+
+function reconnect() {
+  if (es) { es.close(); es = null; }
+  setStatus('connecting');
+  es = new EventSource(getBase() + '/stream');
+  es.onopen  = () => setStatus('live');
+  es.onerror = () => { setStatus('err'); setTimeout(reconnect, 3000); };
+  es.onmessage = (e) => {
+    if (paused) return;
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    total++; eps++;
+
+    const typeFilter   = document.getElementById('filter').value;
+    const marketFilter = document.getElementById('market-filter').value;
+    if (typeFilter !== 'all' && msg.type !== typeFilter) return;
+    if (marketFilter !== 'all' && msg.market && msg.market !== marketFilter) return;
+
+    appendRow(msg);
+  };
+}
+
+function appendRow(msg) {
+  const feed = document.getElementById('feed');
+  while (feed.children.length >= MAX_ROWS) feed.lastChild.remove();
+
+  const row = document.createElement('div');
+  const isLive = msg.meta && msg.meta.live;
+  row.className = 'row' + (isLive ? ' is-live' : '');
+
+  const now = new Date();
+  const ts  = now.toLocaleTimeString('fr-FR', {hour12:false}) + '.' +
+              String(now.getMilliseconds()).padStart(3,'0');
+
+  // Badge
+  let badge;
+  if (msg.type === 'price') {
+    badge = `<span class="badge price">PRICE</span>`;
+  } else if (msg.type === 'snapshot') {
+    const cnt = Object.keys(msg.prices || {}).length;
+    badge = `<span class="badge snapshot">SNAP·${cnt}</span>`;
+  } else {
+    badge = `<span class="badge" style="background:#2a4060;color:#8ab4d4">${esc(msg.type||'?')}</span>`;
+  }
+
+  // Match label
+  const matchLabel = (msg.meta && msg.meta.match) ? msg.meta.match : (msg.match_id || '');
+
+  // Odds summary
+  let rawStr;
+  if (msg.type === 'price' && msg.odds) {
+    rawStr = `[${esc(msg.market||'')}] ` +
+      Object.entries(msg.odds).map(([k,v]) => `${esc(k)}:${v}`).join('  ');
+  } else if (msg.type === 'snapshot') {
+    rawStr = `snapshot — ${Object.keys(msg.prices||{}).length} matches in memory`;
+  } else {
+    rawStr = JSON.stringify(msg).slice(0, 280);
+  }
+
+  row.innerHTML =
+    `<span class="c-ts">${ts}</span>` +
+    `<span class="c-bdg">${badge}</span>` +
+    `<span class="c-mid">${esc(matchLabel)}</span>` +
+    `<span class="c-raw">${esc(rawStr)}</span>`;
+
+  feed.insertBefore(row, feed.firstChild);
+}
+
+function clearFeed()   { document.getElementById('feed').innerHTML = ''; }
+function togglePause() {
+  paused = !paused;
+  document.getElementById('btn-pause').textContent = paused ? '▶ Resume' : '⏸ Pause';
+}
+
+function setStatus(s) {
+  const dot = document.getElementById('dot');
+  const lbl = document.getElementById('dot-label');
+  if (s === 'live')        { dot.className = 'live'; lbl.textContent = 'LIVE'; }
+  else if (s === 'err')    { dot.className = 'err';  lbl.textContent = 'ERR'; }
+  else                     { dot.className = '';     lbl.textContent = 'connecting…'; }
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+reconnect();
+</script>
+</body>
+</html>
