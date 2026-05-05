@@ -133,15 +133,21 @@ setInterval(() => {
   eps = 0;
 }, 1000);
 
-function getBase() { return document.getElementById('api').value.replace(/\/$/,''); }
+const BASE = window.BETCLIC_URL?.replace(/\/$/, "") ?? "http://localhost:5003";
+function getBase() { return document.getElementById('api').value.replace(/\/$/,'') || BASE; }
 
-function reconnect() {
-  if (es) { es.close(); es = null; }
-  setStatus('connecting');
-  es = new EventSource(getBase() + '/stream');
-  es.onopen  = () => setStatus('live');
-  es.onerror = () => { setStatus('err'); setTimeout(reconnect, 3000); };
-  es.onmessage = (e) => {
+let _retryDelay = 1000;
+let _es = null;
+
+function connectSSE() {
+  _es = new EventSource(getBase() + '/stream');
+
+  _es.onopen = () => {
+    _retryDelay = 1000;
+    setStatus('live');
+  };
+
+  _es.onmessage = (e) => {
     if (paused) return;
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
     total++; eps++;
@@ -153,6 +159,22 @@ function reconnect() {
 
     appendRow(msg);
   };
+
+  _es.onerror = () => {
+    _es.close();
+    setStatus('err');
+    setTimeout(() => {
+      _retryDelay = Math.min(_retryDelay * 2, 30_000);
+      connectSSE();
+    }, _retryDelay);
+  };
+}
+
+function reconnect() {
+  if (_es) { _es.close(); _es = null; }
+  _retryDelay = 1000;
+  setStatus('connecting');
+  connectSSE();
 }
 
 function appendRow(msg) {

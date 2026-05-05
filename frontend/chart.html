@@ -187,15 +187,42 @@ let es          = null;
 // ─────────────────────────────────────────────────────────────────────────────
 // CONNECT
 // ─────────────────────────────────────────────────────────────────────────────
-function getBase() { return document.getElementById('api-url').value.replace(/\/$/,''); }
+const BASE = window.BETCLIC_URL?.replace(/\/$/, "") ?? "http://localhost:5003";
+function getBase() { return document.getElementById('api-url').value.replace(/\/$/,'') || BASE; }
+
+let _retryDelay = 1000;
+let _es = null;
+
+function connectSSE() {
+  _es = new EventSource(getBase() + '/stream');
+
+  _es.onopen = () => {
+    _retryDelay = 1000;
+    setStatus('live');
+  };
+
+  _es.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.type === 'price')    onPrice(m);
+    if (m.type === 'snapshot') onSnapshot(m);
+  };
+
+  _es.onerror = () => {
+    _es.close();
+    setStatus('err');
+    setTimeout(() => {
+      _retryDelay = Math.min(_retryDelay * 2, 30_000);
+      connectSSE();
+    }, _retryDelay);
+  };
+}
 
 async function reconnect() {
-  if (es) { es.close(); es = null; }
+  if (_es) { _es.close(); _es = null; }
+  _retryDelay = 1000;
   setStatus('connecting');
 
   // Step 1 — REST bootstrap: get names + current odds before SSE opens.
-  // This is why 95% of matches were showing as raw IDs in the old version —
-  // the old chart never called /markets at all.
   try {
     const [rM, rP] = await Promise.all([
       fetch(getBase() + '/markets'),
@@ -221,14 +248,7 @@ async function reconnect() {
   } catch(e) { console.warn('bootstrap failed:', e); }
 
   // Step 2 — SSE
-  es = new EventSource(getBase() + '/stream');
-  es.onopen  = () => setStatus('live');
-  es.onerror = () => { setStatus('err'); setTimeout(reconnect, 4000); };
-  es.onmessage = (e) => {
-    let m; try { m = JSON.parse(e.data); } catch { return; }
-    if (m.type === 'price')    onPrice(m);
-    if (m.type === 'snapshot') onSnapshot(m);
-  };
+  connectSSE();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
