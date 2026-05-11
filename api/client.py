@@ -6,6 +6,7 @@ The feed creates one BetclicClient per aiohttp.ClientSession (one session
 shared across all concurrent streams).
 """
 from __future__ import annotations
+import ssl
 import struct
 import logging
 from typing import AsyncIterator
@@ -187,11 +188,15 @@ def make_session(max_per_host: int = 80) -> aiohttp.ClientSession:
     Factory for the shared aiohttp session.
     Call once at startup; pass the session to BetclicClient.
     """
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
     connector = aiohttp.TCPConnector(
         limit_per_host=max_per_host,
         ttl_dns_cache=600,
         enable_cleanup_closed=True,
         force_close=False,
+        ssl=ssl_ctx,
     )
     return aiohttp.ClientSession(
         headers=HEADERS,
