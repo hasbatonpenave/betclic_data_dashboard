@@ -1,33 +1,15 @@
 """
-storage/repository.py — abstract storage interface.
-
-Swap SQLiteRepository for any other backend without touching server/ or feed/.
+storage/repository.py — Abstract base class for price storage.
 """
-from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from api.models import OddsUpdate, PricePoint
 
 
 class PriceRepository(ABC):
 
     @abstractmethod
-    def enqueue(self, update: OddsUpdate) -> None:
-        """
-        Non-blocking enqueue of a price update for persistence.
-        Called from the async event loop — must never block.
-        """
-
-    @abstractmethod
-    def get_history(
-        self,
-        match_id:  str,
-        selection: str,
-        market:    str,
-        limit:     int,
-    ) -> list[PricePoint]:
-        """
-        Synchronous read — always called via run_in_executor.
-        """
+    def enqueue(self, row: tuple) -> None:
+        """Non-blocking enqueue of a price row for batch insert."""
 
     @abstractmethod
     def start(self) -> None:
@@ -35,8 +17,8 @@ class PriceRepository(ABC):
 
     @abstractmethod
     def stop(self) -> None:
-        """Signal shutdown and flush remaining rows."""
+        """Signal the writer to flush and exit."""
 
     @abstractmethod
     def join(self, timeout: float = 10.0) -> None:
-        """Block until the writer thread has flushed and exited."""
+        """Wait for the writer thread to finish."""

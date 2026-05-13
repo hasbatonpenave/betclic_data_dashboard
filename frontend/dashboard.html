@@ -190,7 +190,7 @@ button.ctrl:hover { color:var(--text-hi); }
   <div class="logo">BETCLIC <span>/ 1X2 Dashboard</span></div>
   <span id="dot"></span>
   <span id="conn-label">—</span>
-  <input id="api-url" class="ctrl" style="width:190px" value="http://localhost:5003">
+  <input id="api-url" class="ctrl" style="width:190px" value="http://localhost:5001">
   <button class="ctrl" onclick="reconnect()">↺ Connect</button>
   <div id="stats">
     <span>Matches: <b id="st-matches">0</b></span>
@@ -221,58 +221,32 @@ let es = null;
 let updateCount = 0;
 
 // ── CONNECTION ─────────────────────────────────────────────────────────────
-const BASE = window.BETCLIC_URL?.replace(/\/$/, "") ?? "http://localhost:5003";
-function getBase() { return document.getElementById('api-url').value.replace(/\/$/,'') || BASE; }
-
-let _retryDelay = 1000;
-let _es = null;
-
-function connectSSE() {
-  _es = new EventSource(getBase() + '/stream');
-
-  _es.onopen = () => {
-    _retryDelay = 1000;
-    setStatus('live');
-    startStatsPoll();
-  };
-
-  _es.onmessage = (e) => {
-    let msg; try { msg = JSON.parse(e.data); } catch { return; }
-    if (msg.type === 'price')    handlePrice(msg);
-    if (msg.type === 'snapshot') handleSnapshot(msg);
-  };
-
-  _es.onerror = () => {
-    _es.close();
-    setStatus('err');
-    setTimeout(() => {
-      _retryDelay = Math.min(_retryDelay * 2, 30_000);
-      connectSSE();
-    }, _retryDelay);
-  };
-}
+function getBase() { return document.getElementById('api-url').value.replace(/\/$/,''); }
 
 async function reconnect() {
-  if (_es) { _es.close(); _es = null; }
-  _retryDelay = 1000;
+  if (es) { es.close(); es = null; }
   setStatus('connecting');
 
   // ── Step 1: pre-populate all known matches from /markets ─────────────────
+  // This is independent of whether a price frame has arrived yet.
+  // Cards get created here with "—" odds; SSE updates fill them in.
   try {
     const [marketsRes, pricesRes] = await Promise.all([
       fetch(getBase() + '/markets'),
       fetch(getBase() + '/prices'),
     ]);
-    const markets = await marketsRes.json();
-    const prices  = await pricesRes.json();
+    const markets = await marketsRes.json();   // {mid: {match, competition, date, live, teams}}
+    const prices  = await pricesRes.json();    // {mid: {market: {sel: odd}}}
 
     for (const [mid, meta] of Object.entries(markets)) {
       _ensureMatchState(mid, meta);
+      // Seed odds from /prices if already available
       const mktOdds = (prices[mid] || {})['1X2'];
       if (mktOdds) Object.assign(matchState[mid].odds, mktOdds);
       _ensureCard(mid);
       updateCard(mid);
     }
+    // Also create cards for price-only entries not yet in /markets
     for (const [mid, mktMap] of Object.entries(prices)) {
       if (matchState[mid] && matchState[mid].cardEl) continue;
       _ensureMatchState(mid, {});
@@ -287,7 +261,14 @@ async function reconnect() {
   }
 
   // ── Step 2: open SSE for live updates ────────────────────────────────────
-  connectSSE();
+  es = new EventSource(getBase() + '/stream');
+  es.onopen  = () => { setStatus('live'); startStatsPoll(); };
+  es.onerror = () => { setStatus('err'); setTimeout(reconnect, 4000); };
+  es.onmessage = (e) => {
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.type === 'price')    handlePrice(msg);
+    if (msg.type === 'snapshot') handleSnapshot(msg);
+  };
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
