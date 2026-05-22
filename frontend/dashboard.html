@@ -99,7 +99,9 @@ button.ctrl:hover { color:var(--text-hi); }
 .card-match {
   color:var(--text-hi); font-size:11px; font-weight:600;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;
+  text-decoration:none; cursor:pointer;
 }
+.card-match:hover { color:#fff; text-decoration:underline; text-underline-offset:2px; }
 .card-comp {
   color:#3a6080; font-size:9px; white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis; max-width:110px;
@@ -332,7 +334,7 @@ function createCard(mid) {
   div.dataset.mid = mid;
   div.innerHTML = `
     <div class="card-header">
-      <div class="card-match" id="cm-${mid}">—</div>
+      <a class="card-match" id="cm-${mid}" href="chart.html?match_id=${mid}">—</a>
       <div class="card-comp"  id="cc-${mid}"></div>
       <div class="card-date"  id="cd-${mid}"></div>
     </div>

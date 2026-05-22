@@ -43,7 +43,10 @@ body {
 }
 .ctrl:focus,.ctrl:hover { border-color:var(--accent); }
 #topbar input.ctrl { width:190px; }
+
 #main { flex:1; display:flex; overflow:hidden; }
+
+/* ── sidebar ── */
 #sidebar {
   width:260px; flex-shrink:0; background:var(--bg2);
   border-right:1px solid var(--border);
@@ -73,18 +76,53 @@ body {
   display:inline-block; background:var(--green); color:#000;
   font-size:7px; font-weight:700; padding:1px 4px; margin-right:4px; vertical-align:middle;
 }
+
+/* ── right panel ── */
 #right { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-#sel-bar {
-  display:flex; align-items:center; gap:6px; padding:8px 14px;
+
+/* ── markets panel ── */
+#markets-panel {
   background:var(--bg2); border-bottom:1px solid var(--border);
-  flex-wrap:wrap; flex-shrink:0; min-height:38px;
+  max-height:200px; overflow-y:auto; flex-shrink:0;
 }
-.sel-pill {
-  background:var(--bg3); border:1px solid var(--border); color:var(--text);
-  font-family:inherit; font-size:10px; padding:3px 10px; cursor:pointer;
+.mkt-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(160px,1fr));
+  gap:8px; padding:8px;
 }
-.sel-pill:hover  { border-color:var(--accent); color:var(--text-hi); }
-.sel-pill.active { border-color:var(--accent); color:var(--accent); background:rgba(255,179,0,.06); }
+.mkt-group {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:3px; padding:6px 8px;
+}
+.mkt-name {
+  font-size:9px; color:var(--text); text-transform:uppercase;
+  letter-spacing:.05em; margin-bottom:5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.mkt-sels { display:flex; flex-wrap:wrap; gap:4px; }
+.sel-btn {
+  background:var(--bg2); border:1px solid var(--border); color:var(--text-hi);
+  font-family:inherit; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:1px;
+  padding:4px 8px; min-width:48px; border-radius:3px; transition:border-color .1s;
+}
+.sel-btn:hover:not(.suspended) { border-color:var(--accent); }
+.sel-btn.active { border-color:var(--accent); background:rgba(255,179,0,.08); }
+.sel-btn.suspended { opacity:.45; cursor:default; }
+.sel-btn.suspended .sb-odd { color:var(--red); font-size:9px; font-weight:400; }
+.sb-lbl { font-size:9px; color:var(--text); white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis; }
+.sb-odd { font-size:12px; font-weight:700; color:var(--text-hi); }
+.sel-btn.active .sb-lbl,
+.sel-btn.active .sb-odd { color:var(--accent); }
+.sel-btn.active.suspended .sb-odd { color:var(--red); }
+.mkt-placeholder { color:#2a4060; font-size:11px; padding:20px; text-align:center; }
+
+@keyframes flash-green { 0%{box-shadow:0 0 0 2px var(--green)} 100%{box-shadow:none} }
+@keyframes flash-red   { 0%{box-shadow:0 0 0 2px var(--red)}   100%{box-shadow:none} }
+.sel-btn.flash-up   { animation:flash-green .6s ease-out; }
+.sel-btn.flash-down { animation:flash-red   .6s ease-out; }
+
+/* ── chart area ── */
 #chart-info {
   display:flex; gap:16px; align-items:center; padding:6px 14px;
   background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0;
@@ -99,7 +137,6 @@ body {
 }
 #ci-count { margin-left:auto; color:#3a6080; font-size:10px; }
 
-/* debug bar */
 #debug-bar {
   padding:3px 14px; background:#060a0f; border-bottom:1px solid #0c1420;
   font-size:9px; color:#2a4060; flex-shrink:0; white-space:nowrap;
@@ -127,10 +164,6 @@ canvas#chart { display:block; width:100% !important; height:100% !important; }
   <span id="dot"></span>
   <input id="api-url" class="ctrl" value="http://localhost:5001">
   <button class="ctrl" onclick="reconnect()">↺ Connect</button>
-  <select id="sel-market" class="ctrl" onchange="onMarketChange()">
-    <option value="1X2">1X2</option>
-    <option value="O/U">O/U</option>
-  </select>
   <select id="sel-window" class="ctrl" onchange="redrawChart()">
     <option value="300">5 min</option>
     <option value="900">15 min</option>
@@ -148,8 +181,8 @@ canvas#chart { display:block; width:100% !important; height:100% !important; }
     <div id="match-list"></div>
   </div>
   <div id="right">
-    <div id="sel-bar">
-      <span style="color:#3a6080;font-size:10px">&#8592; pick a match</span>
+    <div id="markets-panel" style="display:none">
+      <div id="markets-inner"><div class="mkt-placeholder">Loading…</div></div>
     </div>
     <div id="chart-info">
       <div><span class="ci-label">Current </span><span class="ci-val" id="ci-cur">—</span></div>
@@ -163,7 +196,7 @@ canvas#chart { display:block; width:100% !important; height:100% !important; }
     <div id="chart-wrap">
       <canvas id="chart"></canvas>
       <div id="no-sel">
-        <div>Select a match, then a selection</div>
+        <div>Select a match, then a market / selection</div>
         <div class="hint">Price history will appear here</div>
       </div>
     </div>
@@ -173,14 +206,17 @@ canvas#chart { display:block; width:100% !important; height:100% !important; }
 <script>
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE
-// meta[mid]              = { match, competition, date, live, … }
-// history[mid][mkt][sel] = [ {ts:ms, odd}, … ]   (always ms, oldest→newest)
+// meta[mid]                    = { match, competition, date, live, … }
+// history[mid][mkt][sel]       = [{ts:ms, odd}, …]  (non-null only)
+// livePricesStore[mid][mkt][sel] = odd | null (null = suspended)
 // ─────────────────────────────────────────────────────────────────────────────
-const meta    = {};
-const history = {};
+const meta            = {};
+const history         = {};
+const livePricesStore = {};
 
-let selectedMid = null;   // currently selected match id string
-let selectedSel = null;   // currently selected selection name string
+let selectedMid = null;
+let selectedMkt = null;
+let selectedSel = null;
 let chartObj    = null;
 let es          = null;
 
@@ -193,9 +229,6 @@ async function reconnect() {
   if (es) { es.close(); es = null; }
   setStatus('connecting');
 
-  // Step 1 — REST bootstrap: get names + current odds before SSE opens.
-  // This is why 95% of matches were showing as raw IDs in the old version —
-  // the old chart never called /markets at all.
   try {
     const [rM, rP] = await Promise.all([
       fetch(getBase() + '/markets'),
@@ -212,7 +245,8 @@ async function reconnect() {
     for (const [mid, markets] of Object.entries(pricesBody)) {
       for (const [mkt, odds] of Object.entries(markets)) {
         for (const [sel, odd] of Object.entries(odds)) {
-          addPoint(mid, mkt, sel, odd, nowMs);
+          _storeLive(mid, mkt, sel, odd);
+          if (odd !== null) addPoint(mid, mkt, sel, odd, nowMs);
         }
       }
       upsertItem(mid);
@@ -220,7 +254,6 @@ async function reconnect() {
     filterMatches();
   } catch(e) { console.warn('bootstrap failed:', e); }
 
-  // Step 2 — SSE
   es = new EventSource(getBase() + '/stream');
   es.onopen  = () => setStatus('live');
   es.onerror = () => { setStatus('err'); setTimeout(reconnect, 4000); };
@@ -232,11 +265,20 @@ async function reconnect() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// LIVE PRICE STORE
+// ─────────────────────────────────────────────────────────────────────────────
+function _storeLive(mid, mkt, sel, odd) {
+  if (!livePricesStore[mid])       livePricesStore[mid]       = {};
+  if (!livePricesStore[mid][mkt])  livePricesStore[mid][mkt]  = {};
+  livePricesStore[mid][mkt][sel] = odd;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HISTORY HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 function addPoint(mid, mkt, sel, odd, tsMs) {
-  if (!history[mid])       history[mid]       = {};
-  if (!history[mid][mkt])  history[mid][mkt]  = {};
+  if (!history[mid])           history[mid]           = {};
+  if (!history[mid][mkt])      history[mid][mkt]      = {};
   if (!history[mid][mkt][sel]) history[mid][mkt][sel] = [];
   const arr  = history[mid][mkt][sel];
   const last = arr[arr.length - 1];
@@ -250,30 +292,26 @@ function addPoint(mid, mkt, sel, odd, tsMs) {
 // SSE HANDLERS
 // ─────────────────────────────────────────────────────────────────────────────
 function onPrice(msg) {
-  const mid   = String(msg.match_id);
-  const mkt   = msg.market;
-  const odds  = msg.odds || {};
-  // Backend sends ts as Unix seconds — convert to ms
-  const tsMs  = msg.ts ? msg.ts * 1000 : Date.now();
+  const mid  = String(msg.match_id);
+  const mkt  = msg.market;
+  const odds = msg.odds || {};
+  const tsMs = msg.ts ? msg.ts * 1000 : Date.now();
 
-  // Meta arrives on every price event — this fills in names for the ~95%
-  // of matches that weren't in /markets yet (race condition at startup)
   if (msg.meta && msg.meta.match) {
     meta[mid] = Object.assign(meta[mid] || {}, msg.meta);
-    upsertItem(mid);   // re-render sidebar item with real name
+    upsertItem(mid);
   }
 
-  // Record all selections
   for (const [sel, odd] of Object.entries(odds)) {
-    addPoint(mid, mkt, sel, odd, tsMs);
+    _storeLive(mid, mkt, sel, odd);
+    if (odd !== null) addPoint(mid, mkt, sel, odd, tsMs);
   }
 
-  // If active match+market: refresh pills + append live point
-  if (mid === selectedMid && mkt === getMarket()) {
-    renderSelPills();
-    if (selectedSel !== null && odds[selectedSel] !== undefined) {
-      appendPoint(tsMs, odds[selectedSel]);
-    }
+  if (mid === selectedMid) patchMarketsGrid(mid, mkt, odds);
+
+  if (mid === selectedMid && mkt === selectedMkt && selectedSel !== null) {
+    const odd = odds[selectedSel];
+    if (odd !== null && odd !== undefined) appendPoint(tsMs, odd);
   }
 }
 
@@ -282,12 +320,14 @@ function onSnapshot(msg) {
   for (const [mid, markets] of Object.entries(msg.prices || {})) {
     for (const [mkt, odds] of Object.entries(markets)) {
       for (const [sel, odd] of Object.entries(odds)) {
-        addPoint(mid, mkt, sel, odd, nowMs);
+        _storeLive(mid, mkt, sel, odd);
+        if (odd !== null) addPoint(mid, mkt, sel, odd, nowMs);
       }
     }
     upsertItem(mid);
   }
   filterMatches();
+  if (selectedMid) renderMarketsGrid(selectedMid);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -295,7 +335,7 @@ function onSnapshot(msg) {
 // ─────────────────────────────────────────────────────────────────────────────
 function upsertItem(mid) {
   const m    = meta[mid] || {};
-  const name = m.match || mid;   // falls back to ID only if meta not yet received
+  const name = m.match || mid;
   let el = document.getElementById('mi-' + mid);
   if (!el) {
     el = document.createElement('div');
@@ -327,76 +367,117 @@ function filterMatches() {
 // ─────────────────────────────────────────────────────────────────────────────
 function selectMatch(mid) {
   selectedMid = mid;
+  selectedMkt = null;
   selectedSel = null;
 
   document.querySelectorAll('.match-item').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('mi-' + mid);
-  if (el) el.classList.add('active');
+  if (el) { el.classList.add('active'); el.scrollIntoView({ block:'nearest' }); }
 
   const m = meta[mid] || {};
   document.getElementById('ci-live-badge').style.display = m.live ? 'inline-block' : 'none';
 
   resetChart();
-  renderSelPills();
-}
-
-function getMarket() { return document.getElementById('sel-market').value; }
-
-function onMarketChange() {
-  if (!selectedMid) return;
-  selectedSel = null;
-  resetChart();
-  renderSelPills();
+  renderMarketsGrid(mid);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SELECTION PILLS
+// MARKETS GRID
 // ─────────────────────────────────────────────────────────────────────────────
-function renderSelPills() {
-  if (!selectedMid) return;
-  const mkt  = getMarket();
-  const sels = Object.keys((history[selectedMid] || {})[mkt] || {});
-  const bar  = document.getElementById('sel-bar');
-  bar.innerHTML = '';
+function _btnKey(mid, mkt, sel) {
+  return (mid + '_' + mkt + '_' + sel).replace(/[^a-zA-Z0-9]/g, '_');
+}
 
-  if (!sels.length) {
-    bar.innerHTML = '<span style="color:#2a4060;font-size:10px">No data yet — waiting for price events…</span>';
+function renderMarketsGrid(mid) {
+  const panel = document.getElementById('markets-panel');
+  const inner = document.getElementById('markets-inner');
+  panel.style.display = 'block';
+
+  const liveData = livePricesStore[mid] || {};
+  const histData = history[mid] || {};
+  const allMkts  = [...new Set([...Object.keys(liveData), ...Object.keys(histData)])];
+
+  if (!allMkts.length) {
+    inner.innerHTML = '<div class="mkt-placeholder">Waiting for data…</div>';
     return;
   }
 
-  const lbl = document.createElement('span');
-  lbl.style.cssText = 'color:#3a6080;font-size:10px;margin-right:4px';
-  lbl.textContent = 'Selection:';
-  bar.appendChild(lbl);
+  let html = '<div class="mkt-grid">';
+  for (const mkt of allMkts) {
+    const sels = [...new Set([
+      ...Object.keys(liveData[mkt] || {}),
+      ...Object.keys(histData[mkt] || {}),
+    ])];
+    if (!sels.length) continue;
 
-  for (const sel of sels) {
-    const btn = document.createElement('button');
-    btn.className = 'sel-pill' + (sel === selectedSel ? ' active' : '');
-    btn.textContent = sel;
-    btn.addEventListener('click', () => onPillClick(sel));
-    bar.appendChild(btn);
+    html += `<div class="mkt-group"><div class="mkt-name">${esc(mkt)}</div><div class="mkt-sels">`;
+    for (const sel of sels) {
+      const odd    = (liveData[mkt] || {})[sel];
+      const isSusp = odd === null || odd === undefined;
+      const oddTxt = isSusp ? 'susp' : odd.toFixed(2);
+      const isAct  = selectedMkt === mkt && selectedSel === sel;
+      const bk     = _btnKey(mid, mkt, sel);
+      html += `<button class="sel-btn${isSusp?' suspended':''}${isAct?' active':''}"
+        id="selbtn-${bk}"
+        onclick="pickSelection(${JSON.stringify(mid)},${JSON.stringify(mkt)},${JSON.stringify(sel)})"
+      ><span class="sb-lbl">${esc(sel)}</span><span class="sb-odd">${esc(oddTxt)}</span></button>`;
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  inner.innerHTML = html;
+}
+
+function patchMarketsGrid(mid, mkt, oddsObj) {
+  for (const [sel, odd] of Object.entries(oddsObj)) {
+    const btn = document.getElementById('selbtn-' + _btnKey(mid, mkt, sel));
+    if (!btn) { renderMarketsGrid(mid); return; }
+
+    const wasSusp = btn.classList.contains('suspended');
+    const isSusp  = odd === null;
+    const prevTxt = btn.querySelector('.sb-odd').textContent;
+    const prevOdd = wasSusp ? null : parseFloat(prevTxt);
+
+    btn.classList.toggle('suspended', isSusp);
+    btn.querySelector('.sb-odd').textContent = isSusp ? 'susp' : odd.toFixed(2);
+
+    if (!isSusp && wasSusp) {
+      _flashBtn(btn, 'up');
+    } else if (!isSusp && !wasSusp && !isNaN(prevOdd)) {
+      if (odd > prevOdd + 0.001)      _flashBtn(btn, 'up');
+      else if (odd < prevOdd - 0.001) _flashBtn(btn, 'down');
+    }
   }
 }
 
+function _flashBtn(btn, dir) {
+  btn.classList.remove('flash-up', 'flash-down');
+  void btn.offsetWidth;
+  btn.classList.add('flash-' + dir);
+  setTimeout(() => btn.classList.remove('flash-up', 'flash-down'), 700);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// PILL CLICK — one clean async function, no duplication
+// SELECTION PICK
 // ─────────────────────────────────────────────────────────────────────────────
-async function onPillClick(sel) {
+async function pickSelection(mid, mkt, sel) {
+  selectedMid = mid;
+  selectedMkt = mkt;
   selectedSel = sel;
 
-  document.querySelectorAll('.sel-pill').forEach(p =>
-    p.classList.toggle('active', p.textContent === sel)
-  );
+  document.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('selbtn-' + _btnKey(mid, mkt, sel));
+  if (btn) btn.classList.add('active');
+
   document.getElementById('no-sel').style.display = 'none';
 
-  const mkt     = getMarket();
-  const inMem   = ((history[selectedMid] || {})[mkt] || {})[sel] || [];
-  dbg(`pill="${sel}" mkt=${mkt} mid=${selectedMid} — RAM: ${inMem.length} pts — fetching SQLite…`);
+  const inMem = ((history[mid] || {})[mkt] || {})[sel] || [];
+  dbg(`sel="${sel}" mkt=${mkt} mid=${mid} — RAM: ${inMem.length} pts — fetching DB…`);
 
-  await fetchDbHistory(selectedMid, sel, mkt);
+  await fetchDbHistory(mid, sel, mkt);
 
-  const afterDb = ((history[selectedMid] || {})[mkt] || {})[sel] || [];
-  dbg(`after DB fetch: ${afterDb.length} pts total — drawing…`);
+  const afterDb = ((history[mid] || {})[mkt] || {})[sel] || [];
+  dbg(`after DB fetch: ${afterDb.length} pts — drawing…`);
 
   drawChart();
 }
@@ -408,13 +489,10 @@ function initChart() {
   try {
     if (chartObj) { chartObj.destroy(); chartObj = null; }
     const canvas = document.getElementById('chart');
-    if (!canvas) { dbg('ERROR: canvas#chart not found in DOM'); return; }
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx)    { dbg('ERROR: could not get 2d context from canvas'); return; }
-    if (typeof Chart === 'undefined') {
-      dbg('ERROR: Chart.js not loaded — check CDN / network');
-      return;
-    }
+    if (!ctx)  return;
+    if (typeof Chart === 'undefined') { dbg('ERROR: Chart.js not loaded'); return; }
     chartObj = new Chart(ctx, {
       type: 'line',
       data: { datasets:[{
@@ -455,10 +533,9 @@ function initChart() {
         }
       }
     });
-    dbg(`chart initialised OK — canvas ${canvas.offsetWidth}×${canvas.offsetHeight}px`);
+    dbg('chart initialised OK');
   } catch(e) {
     dbg('ERROR in initChart: ' + e.message);
-    console.error('[chart] initChart threw:', e);
     chartObj = null;
   }
 }
@@ -470,37 +547,31 @@ function resetChart() {
 }
 
 function drawChart() {
-  if (!selectedMid) { dbg('drawChart: no match selected'); return; }
-  if (!selectedSel) { dbg('drawChart: no selection'); return; }
-  if (!chartObj)    { dbg('drawChart: chartObj is null — initChart failed, check error above'); return; }
+  if (!selectedMid || !selectedSel || !chartObj) return;
 
-  const mkt    = getMarket();
   const winMs  = parseInt(document.getElementById('sel-window').value) * 1000;
   const cutoff = winMs > 0 ? Date.now() - winMs : 0;
-  const raw    = ((history[selectedMid] || {})[mkt] || {})[selectedSel] || [];
+  const raw    = ((history[selectedMid] || {})[selectedMkt] || {})[selectedSel] || [];
   const pts    = raw.filter(p => p.ts >= cutoff).map(p => ({ x:p.ts, y:p.odd }));
 
-  // ── Debug bar ──────────────────────────────────────────────────────────────
-  const allKeys  = Object.keys((history[selectedMid] || {})[mkt] || {});
-  const rawTotal = raw.length;
+  const allKeys  = Object.keys((history[selectedMid] || {})[selectedMkt] || {});
   const oldest   = raw.length ? new Date(raw[0].ts).toLocaleTimeString('fr-FR',{hour12:false}) : '—';
   const newest   = raw.length ? new Date(raw[raw.length-1].ts).toLocaleTimeString('fr-FR',{hour12:false}) : '—';
-  dbg(
-    `mid=${selectedMid} | mkt=${mkt} | sel="${selectedSel}" | ` +
-    `raw=${rawTotal} pts | window_filtered=${pts.length} pts | ` +
-    `oldest=${oldest} newest=${newest} | ` +
-    `all_sels=[${allKeys.join(', ')}]`
-  );
+  dbg(`mid=${selectedMid} | mkt=${selectedMkt} | sel="${selectedSel}" | raw=${raw.length} | ` +
+      `window=${pts.length} pts | oldest=${oldest} newest=${newest} | sels=[${allKeys.join(', ')}]`);
 
-  // Adjust point radius: show dots when data is sparse
   const pr = pts.length <= 5 ? 4 : pts.length <= 30 ? 2 : 0;
   chartObj.data.datasets[0].pointRadius = pr;
-
   chartObj.data.datasets[0].label = selectedSel;
   chartObj.data.datasets[0].data  = pts;
+  if (pts.length) {
+    const _yv=pts.map(p=>p.y), _ymn=Math.min(..._yv), _ymx=Math.max(..._yv);
+    const _ypad=Math.max(0.002,(_ymx-_ymn)*0.1)||0.05;
+    chartObj.options.scales.y.min=_ymn-_ypad;
+    chartObj.options.scales.y.max=_ymx+_ypad;
+  }
   chartObj.update('none');
   updateInfoBar(pts);
-
   document.getElementById('no-sel').style.display = 'none';
 }
 
@@ -511,8 +582,13 @@ function appendPoint(tsMs, odd) {
   const ds     = chartObj.data.datasets[0];
   ds.data.push({ x:tsMs, y:odd });
   if (winMs > 0) ds.data = ds.data.filter(p => p.x >= cutoff);
-  // Adjust point radius dynamically
   ds.pointRadius = ds.data.length <= 5 ? 4 : ds.data.length <= 30 ? 2 : 0;
+  if (ds.data.length) {
+    const _yv=ds.data.map(p=>p.y), _ymn=Math.min(..._yv), _ymx=Math.max(..._yv);
+    const _ypad=Math.max(0.002,(_ymx-_ymn)*0.1)||0.05;
+    chartObj.options.scales.y.min=_ymn-_ypad;
+    chartObj.options.scales.y.max=_ymx+_ypad;
+  }
   chartObj.update('none');
   updateInfoBar(ds.data);
   dbg(`live append: sel="${selectedSel}" odd=${odd} — chart now ${ds.data.length} pts`);
@@ -522,9 +598,8 @@ function redrawChart() { if (selectedSel) drawChart(); }
 
 function clearSeries() {
   if (!selectedMid || !selectedSel) return;
-  const mkt = getMarket();
-  if (history[selectedMid] && history[selectedMid][mkt]) {
-    history[selectedMid][mkt][selectedSel] = [];
+  if (history[selectedMid]?.[selectedMkt]) {
+    history[selectedMid][selectedMkt][selectedSel] = [];
   }
   resetChart();
 }
@@ -573,7 +648,6 @@ async function fetchDbHistory(mid, sel, mkt) {
     const arr    = history[mid][mkt][sel] = history[mid][mkt][sel] || [];
     const oldest = arr.length ? arr[0].ts : Infinity;
 
-    // Only prepend rows older than what we already have in RAM
     const dbPts = rows
       .map(r => ({ ts: r.ts * 1000, odd: r.odd }))
       .filter(p => p.ts < oldest);
@@ -601,8 +675,25 @@ function esc(s) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-initChart();   // warm up — verifies Chart.js loaded OK
-reconnect();
+// BOOT
+// ─────────────────────────────────────────────────────────────────────────────
+initChart();
+reconnect().then(() => {
+  const paramMid = new URLSearchParams(location.search).get('match_id');
+  if (!paramMid) return;
+  if (meta[paramMid] || livePricesStore[paramMid]) {
+    selectMatch(paramMid);
+    return;
+  }
+  // SSE may not have delivered meta yet — retry for a few seconds
+  let tries = 0;
+  const t = setInterval(() => {
+    if (meta[paramMid] || livePricesStore[paramMid] || ++tries > 20) {
+      clearInterval(t);
+      if (meta[paramMid] || livePricesStore[paramMid]) selectMatch(paramMid);
+    }
+  }, 300);
+});
 </script>
 </body>
 </html>
