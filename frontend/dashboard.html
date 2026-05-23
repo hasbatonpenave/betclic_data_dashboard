@@ -1,254 +1,271 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Betclic — 1X2 Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Betclic — Vue d'ensemble 1X2</title>
+<link href="https://fonts.googleapis.com/css2?family=Marianne:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* ── RESET & BASE ───────────────────────────────────────────── */
-*  { box-sizing:border-box; margin:0; padding:0; }
 :root {
-  --bg:       #060a0f;
-  --bg2:      #0c1420;
-  --bg3:      #111d2e;
-  --border:   #1a2e45;
-  --accent:   #ffb300;
-  --blue:     #0096ff;
-  --text:     #8ab4d4;
-  --text-hi:  #cde4f7;
-  --green:    #00e676;
-  --red:      #ff4f4f;
-  --live-clr: #00e676;
+  --blue-france: #000091;
+  --red-marianne: #c9191e;
+  --text-main: #161616;
+  --text-mention: #666666;
+  --bg-default: #ffffff;
+  --bg-alt: #f6f6f6;
+  --border-default: #e5e5e5;
+  --success: #1f8d49;
+  --warning: #d64d00;
 }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background:var(--bg); color:var(--text);
-  font-family:'Fira Mono','Cascadia Code','Consolas',monospace;
-  font-size:12px; min-height:100vh; display:flex; flex-direction:column;
+  background: var(--bg-default); color: var(--text-main);
+  font-family: 'Marianne', Arial, sans-serif; font-size: 14px; line-height: 1.5;
+  min-height: 100vh; display: flex; flex-direction: column;
 }
-
-/* ── TOP BAR ────────────────────────────────────────────────── */
-#topbar {
-  display:flex; align-items:center; gap:12px; padding:10px 16px;
-  background:var(--bg2); border-bottom:1px solid var(--border);
-  flex-shrink:0; flex-wrap:wrap; position:sticky; top:0; z-index:100;
+.gov-header {
+  border-bottom: 2px solid var(--blue-france);
+  background: var(--bg-default); padding: 12px 24px; flex-shrink: 0;
 }
-.logo { color:var(--accent); font-weight:700; font-size:14px; letter-spacing:.07em; }
-.logo span { color:var(--text); font-weight:400; font-size:11px; }
-
-#dot { width:9px; height:9px; border-radius:50%; background:#2a4060; flex-shrink:0; }
-#dot.live { background:var(--green); box-shadow:0 0 7px var(--green); animation:pulse 2s infinite; }
-#dot.err  { background:var(--red); }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-#conn-label { font-size:11px; }
-
-.ctrl {
-  background:var(--bg3); border:1px solid var(--border); color:var(--text);
-  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; cursor:pointer;
+.gov-brand-container { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.marianne-logo {
+  border-left: 3px solid var(--text-main); padding-left: 8px;
+  font-weight: 700; text-transform: uppercase; font-size: 11px;
+  letter-spacing: 0.05em; line-height: 1.1;
 }
-.ctrl:focus, .ctrl:hover { border-color:var(--accent); }
-
-button.ctrl { cursor:pointer; }
-button.ctrl:hover { color:var(--text-hi); }
-
-#stats {
-  margin-left:auto; font-size:10px; color:#3a6080;
-  display:flex; gap:14px; white-space:nowrap;
+.marianne-logo span { color: var(--red-marianne); }
+.app-title-area { flex: 1; padding-left: 16px; }
+.app-title-area h1 { font-size: 16px; font-weight: 700; color: var(--blue-france); }
+.app-title-area p { font-size: 11px; color: var(--text-mention); }
+.api-config {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-alt); padding: 6px 10px; border: 1px solid var(--border-default); flex-wrap: wrap;
 }
-#stats b { color:var(--accent); }
-
-/* ── SEARCH & FILTERS ──────────────────────────────────────── */
-#toolbar {
-  display:flex; gap:8px; align-items:center; padding:8px 16px;
-  background:var(--bg2); border-bottom:1px solid var(--border);
-  flex-wrap:wrap;
+.gov-input {
+  background: var(--bg-default); color: var(--text-main); border: 1px solid #858585;
+  padding: 5px 10px; font-family: 'Roboto Mono', monospace; font-size: 12px; outline: none;
+}
+.gov-input:focus { outline: 2px solid var(--blue-france); }
+.gov-btn {
+  background: var(--blue-france); color: #fff; border: none; padding: 5px 12px;
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Marianne', Arial, sans-serif;
+}
+.gov-btn:hover { background: #1b1bbf; }
+.gov-tabs {
+  background: var(--bg-alt); display: flex;
+  border-bottom: 1px solid var(--border-default); padding: 0 24px; flex-shrink: 0;
+}
+.tab-btn {
+  background: transparent; border: none; color: var(--text-main);
+  padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+  border-bottom: 3px solid transparent; text-decoration: none; display: inline-block;
+  font-family: 'Marianne', Arial, sans-serif;
+}
+.tab-btn:hover { background: rgba(0,0,145,0.05); }
+.tab-btn.active { border-bottom-color: var(--blue-france); color: var(--blue-france); }
+.status-bar {
+  background: #eeeeee; padding: 6px 24px; font-size: 12px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--border-default); flex-shrink: 0;
+}
+#dot { width: 8px; height: 8px; border-radius: 50%; background: #858585; flex-shrink: 0; }
+#dot.live { background: var(--success); }
+#dot.err  { background: var(--red-marianne); }
+.toolbar {
+  display: flex; gap: 8px; align-items: center; padding: 10px 24px;
+  background: var(--bg-alt); border-bottom: 1px solid var(--border-default);
+  flex-wrap: wrap; flex-shrink: 0;
 }
 #search {
-  background:var(--bg3); border:1px solid var(--border); color:var(--text-hi);
-  font-family:inherit; font-size:11px; padding:5px 10px; outline:none; width:220px;
+  background: var(--bg-default); border: 1px solid #858585; color: var(--text-main);
+  font-family: 'Marianne', Arial, sans-serif; font-size: 12px; padding: 5px 10px;
+  outline: none; width: 220px;
 }
-#search:focus { border-color:var(--accent); }
+#search:focus { outline: 2px solid var(--blue-france); }
 .pill {
-  background:var(--bg3); border:1px solid var(--border); color:var(--text);
-  font-family:inherit; font-size:10px; padding:3px 9px; cursor:pointer;
+  background: var(--bg-default); border: 1px solid #858585; color: var(--text-main);
+  font-family: 'Marianne', Arial, sans-serif; font-size: 11px; padding: 4px 12px;
+  cursor: pointer; font-weight: 700;
 }
-.pill:hover  { border-color:var(--accent); color:var(--text-hi); }
-.pill.active { border-color:var(--accent); color:var(--accent); background:rgba(255,179,0,.06); }
-#count-label { color:#3a6080; font-size:10px; margin-left:auto; }
+.pill:hover { border-color: var(--blue-france); }
+.pill.active { background: var(--blue-france); color: #fff; border-color: var(--blue-france); }
+#count-label { color: var(--text-mention); font-size: 12px; margin-left: auto; }
 
-/* ── GRID ───────────────────────────────────────────────────── */
+/* grid */
 #grid {
-  flex:1; padding:10px 16px;
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px,1fr));
-  gap:8px;
-  align-content:start;
+  flex: 1; padding: 16px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px;
+  align-content: start;
 }
 
-/* ── MATCH CARD ─────────────────────────────────────────────── */
+/* cards */
 .card {
-  background:var(--bg2); border:1px solid var(--border);
-  padding:0; overflow:hidden;
-  transition:border-color .15s;
+  background: var(--bg-default); border: 1px solid var(--border-default);
+  overflow: hidden;
 }
-.card:hover { border-color:#2a4060; }
+.card:hover { border-color: var(--blue-france); }
 
 .card-header {
-  display:flex; align-items:center; gap:6px;
-  padding:7px 10px 5px;
-  border-bottom:1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border-default);
 }
 .card-match {
-  color:var(--text-hi); font-size:11px; font-weight:600;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;
-  text-decoration:none; cursor:pointer;
+  color: var(--text-main); font-size: 12px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  text-decoration: none; cursor: pointer;
 }
-.card-match:hover { color:#fff; text-decoration:underline; text-underline-offset:2px; }
+.card-match:hover { color: var(--blue-france); text-decoration: underline; text-underline-offset: 2px; }
 .card-comp {
-  color:#3a6080; font-size:9px; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; max-width:110px;
+  color: var(--text-mention); font-size: 9px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 110px;
 }
 
-/* LIVE badge */
 .live-badge {
-  background:var(--green); color:#000; font-size:8px; font-weight:700;
-  padding:1px 5px; flex-shrink:0;
+  background: var(--success); color: #fff; font-size: 8px; font-weight: 700;
+  padding: 1px 5px; flex-shrink: 0;
 }
-/* Date */
-.card-date { color:#2a4060; font-size:9px; white-space:nowrap; }
+.card-date { color: var(--text-mention); font-size: 9px; white-space: nowrap; }
 
-/* Odds row */
+/* odds */
 .odds-row {
-  display:grid; grid-template-columns:1fr 1fr 1fr;
-  gap:1px; padding:6px;
-  background:var(--border);
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px; padding: 6px;
+  background: var(--border-default);
 }
 .odds-cell {
-  background:var(--bg3); padding:6px 4px; text-align:center;
-  display:flex; flex-direction:column; gap:2px; position:relative;
-  overflow:hidden;
+  background: var(--bg-alt); padding: 6px 4px; text-align: center;
+  display: flex; flex-direction: column; gap: 2px; position: relative;
+  overflow: hidden;
 }
 .sel-label {
-  color:#3a6080; font-size:9px; text-transform:uppercase;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color: var(--text-mention); font-size: 9px; text-transform: uppercase;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .sel-odd {
-  color:var(--text-hi); font-size:15px; font-weight:600; letter-spacing:.02em;
-  transition:color .1s;
+  color: var(--text-main); font-size: 16px; font-weight: 700; letter-spacing: .02em;
+  font-family: 'Roboto Mono', monospace;
 }
-.sel-odd.no-data { color:#2a4060; font-size:13px; }
+.sel-odd.no-data { color: var(--text-mention); font-size: 13px; }
 
-/* flash overlays */
+/* flash */
 .flash-up, .flash-down {
-  position:absolute; inset:0; pointer-events:none; opacity:0;
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
 }
-.flash-up   { background:rgba(0,230,118,.18); }
-.flash-down { background:rgba(255,79,79,.18); }
-
-@keyframes flash-anim {
-  0%   { opacity:1; }
-  100% { opacity:0; }
-}
+.flash-up   { background: rgba(31,141,73,.18); }
+.flash-down { background: rgba(201,25,30,.18); }
+@keyframes flash-anim { 0%{opacity:1} 100%{opacity:0} }
 .flashing-up   .flash-up   { animation: flash-anim .6s ease-out forwards; }
 .flashing-down .flash-down { animation: flash-anim .6s ease-out forwards; }
 
-/* trend arrow next to odd */
-.trend { font-size:9px; display:inline-block; margin-left:2px; }
-.trend.up   { color:var(--green); }
-.trend.down { color:var(--red); }
+.trend { font-size: 9px; display: inline-block; margin-left: 2px; font-weight: 700; }
+.trend.up   { color: var(--success); }
+.trend.down { color: var(--red-marianne); }
 
-/* card footer */
 .card-footer {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:4px 10px; border-top:1px solid rgba(26,46,69,.5);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 12px; border-top: 1px solid var(--border-default);
 }
-.card-mid  { color:#2a4060; font-size:9px; }
-.card-age  { color:#2a4060; font-size:9px; }
+.card-mid  { color: var(--text-mention); font-size: 9px; font-family: 'Roboto Mono', monospace; }
+.card-age  { color: var(--text-mention); font-size: 9px; }
 
-/* live score bar */
 .score-bar {
-  display:flex; align-items:center; gap:8px;
-  padding:4px 10px; border-top:1px solid rgba(26,46,69,.5);
-  font-size:10px; min-height:22px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 12px; border-top: 1px solid var(--border-default);
+  font-size: 10px; min-height: 22px;
 }
-.score-val  { color:#00e676; font-weight:700; font-size:13px; letter-spacing:.05em; }
-.period-val { color:#ffb300; font-size:9px; }
-.minute-val { color:#3a6080; font-size:9px; }
+.score-val  { color: var(--success); font-weight: 700; font-size: 13px; letter-spacing: .05em; font-family: 'Roboto Mono', monospace; }
+.period-val { color: var(--blue-france); font-size: 9px; }
+.minute-val { color: var(--text-mention); font-size: 9px; }
 
-/* empty state */
 #empty {
-  grid-column:1/-1; text-align:center; padding:80px 0;
-  color:#2a4060; font-size:13px; display:none;
+  grid-column: 1/-1; text-align: center; padding: 80px 0;
+  color: var(--text-mention); font-size: 13px; display: none;
 }
 
-/* scrollbar */
-::-webkit-scrollbar { width:5px; height:5px; }
-::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:#2a4060; border-radius:3px; }
+/* stats */
+#stats { display: flex; gap: 16px; white-space: nowrap; font-size: 12px; color: var(--text-mention); }
+#stats b { color: var(--blue-france); font-family: 'Roboto Mono', monospace; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cccccc; border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<!-- ── TOP BAR ──────────────────────────────────────────────── -->
-<div id="topbar">
-  <div class="logo">BETCLIC <span>/ 1X2 Dashboard</span></div>
+<header class="gov-header">
+  <div class="gov-brand-container">
+    <div class="marianne-logo">République<br>Française<br><span>——</span></div>
+    <div class="app-title-area">
+      <h1>Betclic — Vue d'ensemble 1X2</h1>
+      <p>Suivi des cotes en temps réel</p>
+    </div>
+    <div class="api-config">
+      <label style="font-size:12px;font-weight:700;white-space:nowrap;">Serveur :</label>
+      <input class="gov-input" id="api-url" value="http://localhost:5001" placeholder="URL du serveur" style="flex:1;min-width:200px">
+      <button class="gov-btn" onclick="reconnect()">Connecter</button>
+      <div id="stats">
+        <span>Matchs : <b id="st-matches">0</b></span>
+        <span>Màj : <b id="st-updates">0</b></span>
+        <span>Flux : <b id="st-streams">0</b></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="gov-tabs">
+  <a class="tab-btn active" href="dashboard.html">Vue d'ensemble</a>
+  <a class="tab-btn" href="chart.html">Graphique</a>
+  <a class="tab-btn" href="stream.html">Journal SSE</a>
+</nav>
+
+<div class="status-bar">
   <span id="dot"></span>
   <span id="conn-label">—</span>
-  <input id="api-url" class="ctrl" style="width:190px" value="http://localhost:5001">
-  <button class="ctrl" onclick="reconnect()">↺ Connect</button>
-  <div id="stats">
-    <span>Matches: <b id="st-matches">0</b></span>
-    <span>Updates: <b id="st-updates">0</b></span>
-    <span>Streams: <b id="st-streams">0</b></span>
-  </div>
 </div>
 
-<!-- ── TOOLBAR ──────────────────────────────────────────────── -->
-<div id="toolbar">
-  <input id="search" placeholder="Search match or competition…" oninput="applyFilters()">
-  <button class="pill active" data-filter="all"      onclick="setFilter(this)">All</button>
-  <button class="pill"        data-filter="live"     onclick="setFilter(this)">Live</button>
-  <button class="pill"        data-filter="prematch" onclick="setFilter(this)">Pre-match</button>
-  <span id="count-label">0 matches</span>
+<div class="toolbar">
+  <input id="search" placeholder="Rechercher match ou compétition…" oninput="applyFilters()">
+  <button class="pill active" data-filter="all"      onclick="setFilter(this)">Tous</button>
+  <button class="pill"        data-filter="live"     onclick="setFilter(this)">Direct</button>
+  <button class="pill"        data-filter="prematch" onclick="setFilter(this)">Avant-match</button>
+  <span id="count-label">0 matchs</span>
 </div>
 
-<!-- ── GRID ─────────────────────────────────────────────────── -->
 <div id="grid">
-  <div id="empty">Waiting for data…</div>
+  <div id="empty">En attente de données…</div>
 </div>
 
 <script>
-// ── STATE ──────────────────────────────────────────────────────────────────
-const matchState = {};   // matchState[match_id] = { meta, odds:{sel:odd}, prevOdds, lastTs, cardEl }
+const matchState = {};
 let activeFilter = 'all';
 let es = null;
 let updateCount = 0;
 
-// ── CONNECTION ─────────────────────────────────────────────────────────────
 function getBase() { return document.getElementById('api-url').value.replace(/\/$/,''); }
 
 async function reconnect() {
   if (es) { es.close(); es = null; }
   setStatus('connecting');
 
-  // ── Step 1: pre-populate all known matches from /markets ─────────────────
-  // This is independent of whether a price frame has arrived yet.
-  // Cards get created here with "—" odds; SSE updates fill them in.
   try {
     const [marketsRes, pricesRes] = await Promise.all([
       fetch(getBase() + '/markets'),
       fetch(getBase() + '/prices'),
     ]);
-    const markets = await marketsRes.json();   // {mid: {match, competition, date, live, teams}}
-    const prices  = await pricesRes.json();    // {mid: {market: {sel: odd}}}
+    const markets = await marketsRes.json();
+    const prices  = await pricesRes.json();
 
     for (const [mid, meta] of Object.entries(markets)) {
       _ensureMatchState(mid, meta);
-      // Seed odds from /prices if already available
       const mktOdds = (prices[mid] || {})['1X2'];
       if (mktOdds) Object.assign(matchState[mid].odds, mktOdds);
       _ensureCard(mid);
       updateCard(mid);
     }
-    // Also create cards for price-only entries not yet in /markets
     for (const [mid, mktMap] of Object.entries(prices)) {
       if (matchState[mid] && matchState[mid].cardEl) continue;
       _ensureMatchState(mid, {});
@@ -262,7 +279,6 @@ async function reconnect() {
     console.warn('[betclic] bootstrap failed:', err);
   }
 
-  // ── Step 2: open SSE for live updates ────────────────────────────────────
   es = new EventSource(getBase() + '/stream');
   es.onopen  = () => { setStatus('live'); startStatsPoll(); };
   es.onerror = () => { setStatus('err'); setTimeout(reconnect, 4000); };
@@ -273,7 +289,6 @@ async function reconnect() {
   };
 }
 
-// ── HELPERS ────────────────────────────────────────────────────────────────
 function _ensureMatchState(mid, meta) {
   if (!matchState[mid]) {
     matchState[mid] = { meta: {}, odds: {}, prevOdds: {}, lastTs: Date.now() };
@@ -289,7 +304,6 @@ function _ensureCard(mid) {
   }
 }
 
-// ── PRICE EVENT ────────────────────────────────────────────────────────────
 function handlePrice(msg) {
   if (msg.market !== '1X2') return;
   const mid = String(msg.match_id);
@@ -302,7 +316,6 @@ function handlePrice(msg) {
   Object.assign(ms.prevOdds, ms.odds);
   Object.assign(ms.odds, msg.odds);
 
-  // Authoritative live state arrives on every frame
   if (msg.live  !== undefined) ms.meta.live   = msg.live;
   if (msg.score !== undefined) ms.meta.score  = msg.score;
   if (msg.period !== undefined && msg.period) ms.meta.period = msg.period;
@@ -313,7 +326,6 @@ function handlePrice(msg) {
   applyFilters();
 }
 
-// ── SNAPSHOT (SSE supplement — fills any gaps the bootstrap missed) ──────
 function handleSnapshot(msg) {
   const prices = msg.prices || {};
   for (const [mid, markets] of Object.entries(prices)) {
@@ -327,7 +339,6 @@ function handleSnapshot(msg) {
   applyFilters();
 }
 
-// ── CARD FACTORY ───────────────────────────────────────────────────────────
 function createCard(mid) {
   const div = document.createElement('div');
   div.className = 'card';
@@ -370,18 +381,15 @@ function cellId(mid, sel) {
   return 'cell_' + mid + '_' + sel.replace(/[^a-zA-Z0-9]/g,'_');
 }
 
-// ── CARD UPDATE ────────────────────────────────────────────────────────────
 const LABELS = {
-  '1': 'Home', 'Nul': 'Draw', '2': 'Away',
-  'X': 'Draw',
-  // Betclic may use team names directly — we handle fallback below
+  '1': 'Domicile', 'Nul': 'Nul', '2': 'Extérieur',
+  'X': 'Nul',
 };
 
 function updateCard(mid) {
   const ms   = matchState[mid];
   const meta = ms.meta;
 
-  // Header
   const matchEl = document.getElementById('cm-' + mid);
   const compEl  = document.getElementById('cc-' + mid);
   const dateEl  = document.getElementById('cd-' + mid);
@@ -392,26 +400,19 @@ function updateCard(mid) {
   if (dateEl)  dateEl.textContent  = formatDate(meta.date);
   if (ageEl)   ageEl.textContent   = timeAgo(ms.lastTs);
 
-  // Live badge — add/remove from header
-  const header = document.querySelector(`#card-${mid} .card-header`) ||
-                 ms.cardEl.querySelector('.card-header');
+  const header = ms.cardEl.querySelector('.card-header');
   let liveBadge = ms.cardEl.querySelector('.live-badge');
   if (meta.live && !liveBadge) {
     liveBadge = document.createElement('span');
     liveBadge.className = 'live-badge';
-    liveBadge.textContent = 'LIVE';
+    liveBadge.textContent = 'DIRECT';
     header.insertBefore(liveBadge, header.firstChild);
   } else if (!meta.live && liveBadge) {
     liveBadge.remove();
   }
 
-  // Determine team names for labels
   const teams = meta.teams || [];
-
-  // Odds — determine selection keys from current odds
   const oddKeys = Object.keys(ms.odds);
-
-  // Map to display: if we have exactly 3 keys with 1/X/2 or named teams
   const slots = resolveSlots(oddKeys, teams);
 
   for (const [slotKey, selName] of Object.entries(slots)) {
@@ -421,16 +422,13 @@ function updateCard(mid) {
     const cell    = document.getElementById(cid);
     if (!cell) continue;
 
-    // Update label (may be a team name)
-    cell.querySelector('.sel-label').textContent =
-      LABELS[slotKey] || slotKey;
+    cell.querySelector('.sel-label').textContent = LABELS[slotKey] || slotKey;
 
     const oddEl = document.getElementById('odd-' + cid);
     if (odd !== undefined) {
       oddEl.textContent = odd.toFixed(2);
       oddEl.classList.remove('no-data');
 
-      // Trend arrow
       let trendHtml = '';
       if (prevOdd !== undefined && prevOdd !== odd) {
         const dir = odd > prevOdd ? 'up' : 'down';
@@ -441,12 +439,10 @@ function updateCard(mid) {
     }
   }
 
-  // Tag card for filter
   ms.cardEl.dataset.live = meta.live ? '1' : '0';
   ms.cardEl.dataset.matchname = (meta.match || '').toLowerCase();
   ms.cardEl.dataset.comp      = (meta.competition || '').toLowerCase();
 
-  // ── Score bar (only shown for live matches with known score) ────────────
   const sb = document.getElementById('sb-' + mid);
   if (sb) {
     const hasScore = meta.score !== undefined && meta.score !== null;
@@ -462,28 +458,23 @@ function updateCard(mid) {
   }
 }
 
-// Resolve which selection key goes in which visual slot (1=Home, Nul=Draw, 2=Away)
 function resolveSlots(oddKeys, teams) {
-  // Standard Betclic keys
   if (oddKeys.includes('1') || oddKeys.includes('X') || oddKeys.includes('2')) {
     return { '1': '1', 'Nul': oddKeys.includes('Nul') ? 'Nul' : 'X', '2': '2' };
   }
-  // Team names — assume [home, draw?, away] order
   const sorted = [...oddKeys];
   if (sorted.length === 2) return { '1': sorted[0], 'Nul': '', '2': sorted[1] };
   if (sorted.length === 3) return { '1': sorted[0], 'Nul': sorted[1], '2': sorted[2] };
   return {};
 }
 
-// ── FLASH ─────────────────────────────────────────────────────────────────
 function flashCell(cell, dir) {
   cell.classList.remove('flashing-up', 'flashing-down');
-  void cell.offsetWidth;  // force reflow to restart animation
+  void cell.offsetWidth;
   cell.classList.add(dir === 'up' ? 'flashing-up' : 'flashing-down');
   setTimeout(() => cell.classList.remove('flashing-up','flashing-down'), 700);
 }
 
-// ── FILTERS ───────────────────────────────────────────────────────────────
 function setFilter(el) {
   document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
@@ -510,12 +501,11 @@ function applyFilters() {
     card.style.display = show ? '' : 'none';
     if (show) vis++;
   }
-  document.getElementById('count-label').textContent = `${vis} match${vis!==1?'es':''}`;
+  document.getElementById('count-label').textContent = `${vis} match${vis!==1?'s':''}`;
   document.getElementById('empty').style.display =
     vis === 0 && Object.keys(matchState).length > 0 ? 'block' : 'none';
 }
 
-// ── STATUS POLL ───────────────────────────────────────────────────────────
 let _statsPollId = null;
 function startStatsPoll() {
   if (_statsPollId) return;
@@ -529,15 +519,13 @@ function startStatsPoll() {
   }, 5000);
 }
 
-// ── RELATIVE TIME ─────────────────────────────────────────────────────────
 function timeAgo(ts) {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 5)  return 'just now';
-  if (s < 60) return s + 's ago';
-  return Math.floor(s/60) + 'm ago';
+  if (s < 5)  return 'à l\'instant';
+  if (s < 60) return s + 's';
+  return Math.floor(s/60) + 'min';
 }
 
-// Update age labels every 10 s
 setInterval(() => {
   for (const [mid, ms] of Object.entries(matchState)) {
     const el = document.getElementById('cage-' + mid);
@@ -554,16 +542,14 @@ function formatDate(iso) {
   } catch { return ''; }
 }
 
-// ── STATUS INDICATOR ──────────────────────────────────────────────────────
 function setStatus(s) {
   const dot = document.getElementById('dot');
   const lbl = document.getElementById('conn-label');
-  if (s === 'live')     { dot.className = 'live'; lbl.textContent = 'LIVE'; }
-  else if (s === 'err') { dot.className = 'err';  lbl.textContent = 'ERR — retrying'; }
-  else                  { dot.className = '';     lbl.textContent = 'connecting…'; }
+  if (s === 'live')     { dot.className = 'live'; lbl.textContent = 'Connecté'; }
+  else if (s === 'err') { dot.className = 'err';  lbl.textContent = 'Erreur — reconnexion…'; }
+  else                  { dot.className = '';     lbl.textContent = 'connexion…'; }
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────
 reconnect();
 </script>
 </body>

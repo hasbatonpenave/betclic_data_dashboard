@@ -1,215 +1,257 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Betclic — Price Chart</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Betclic — Graphique des cotes</title>
+<link href="https://fonts.googleapis.com/css2?family=Marianne:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
         onerror="document.getElementById('debug-bar').textContent='FATAL: Chart.js CDN failed to load'"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"
         onerror="document.getElementById('debug-bar').textContent='FATAL: chartjs-adapter-date-fns CDN failed to load'"></script>
 <style>
-* { box-sizing:border-box; margin:0; padding:0; }
 :root {
-  --bg:      #060a0f;
-  --bg2:     #0c1420;
-  --bg3:     #111d2e;
-  --border:  #1a2e45;
-  --accent:  #ffb300;
-  --text:    #8ab4d4;
-  --text-hi: #cde4f7;
-  --green:   #00e676;
-  --red:     #ff4f4f;
+  --blue-france: #000091;
+  --red-marianne: #c9191e;
+  --text-main: #161616;
+  --text-mention: #666666;
+  --bg-default: #ffffff;
+  --bg-alt: #f6f6f6;
+  --border-default: #e5e5e5;
+  --success: #1f8d49;
+  --warning: #d64d00;
 }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background:var(--bg); color:var(--text);
-  font-family:'Fira Mono','Cascadia Code','Consolas',monospace;
-  font-size:12px; height:100vh; display:flex; flex-direction:column;
-  overflow:hidden;
+  background: var(--bg-default); color: var(--text-main);
+  font-family: 'Marianne', Arial, sans-serif; font-size: 14px; line-height: 1.5;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
 }
-#topbar {
-  display:flex; align-items:center; gap:10px; padding:8px 14px;
-  background:var(--bg2); border-bottom:1px solid var(--border);
-  flex-shrink:0; flex-wrap:wrap;
+.gov-header {
+  border-bottom: 2px solid var(--blue-france);
+  background: var(--bg-default); padding: 12px 24px; flex-shrink: 0;
 }
-.logo { color:var(--accent); font-weight:700; font-size:13px; letter-spacing:.06em; }
-.logo span { color:var(--text); font-weight:400; font-size:11px; }
-#dot { width:8px; height:8px; border-radius:50%; background:#2a4060; flex-shrink:0; }
-#dot.live { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
-#dot.err  { background:var(--red); }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-.ctrl {
-  background:var(--bg3); border:1px solid var(--border); color:var(--text);
-  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; cursor:pointer;
+.gov-brand-container { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.marianne-logo {
+  border-left: 3px solid var(--text-main); padding-left: 8px;
+  font-weight: 700; text-transform: uppercase; font-size: 11px;
+  letter-spacing: 0.05em; line-height: 1.1;
 }
-.ctrl:focus,.ctrl:hover { border-color:var(--accent); }
-#topbar input.ctrl { width:190px; }
+.marianne-logo span { color: var(--red-marianne); }
+.app-title-area { flex: 1; padding-left: 16px; }
+.app-title-area h1 { font-size: 16px; font-weight: 700; color: var(--blue-france); }
+.app-title-area p { font-size: 11px; color: var(--text-mention); }
+.api-config {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-alt); padding: 6px 10px; border: 1px solid var(--border-default); flex-wrap: wrap;
+}
+.gov-input {
+  background: var(--bg-default); color: var(--text-main); border: 1px solid #858585;
+  padding: 5px 10px; font-family: 'Roboto Mono', monospace; font-size: 12px; outline: none;
+}
+.gov-input:focus { outline: 2px solid var(--blue-france); }
+.gov-btn {
+  background: var(--blue-france); color: #fff; border: none; padding: 5px 12px;
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Marianne', Arial, sans-serif;
+}
+.gov-btn:hover { background: #1b1bbf; }
+.gov-btn.alt { background: transparent; color: var(--blue-france); border: 1px solid var(--blue-france); }
+.gov-btn.alt:hover { background: rgba(0,0,145,0.05); }
+.gov-select {
+  background: var(--bg-default); color: var(--text-main); border: 1px solid #858585;
+  padding: 5px 10px; font-family: 'Marianne', Arial, sans-serif; font-size: 12px;
+  outline: none; cursor: pointer;
+}
+.gov-select:focus { outline: 2px solid var(--blue-france); }
+.gov-tabs {
+  background: var(--bg-alt); display: flex;
+  border-bottom: 1px solid var(--border-default); padding: 0 24px; flex-shrink: 0;
+}
+.tab-btn {
+  background: transparent; border: none; color: var(--text-main);
+  padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+  border-bottom: 3px solid transparent; text-decoration: none; display: inline-block;
+  font-family: 'Marianne', Arial, sans-serif;
+}
+.tab-btn:hover { background: rgba(0,0,145,0.05); }
+.tab-btn.active { border-bottom-color: var(--blue-france); color: var(--blue-france); }
 
-#main { flex:1; display:flex; overflow:hidden; }
+#main { flex: 1; display: flex; overflow: hidden; }
 
-/* ── sidebar ── */
+/* sidebar */
 #sidebar {
-  width:260px; flex-shrink:0; background:var(--bg2);
-  border-right:1px solid var(--border);
-  display:flex; flex-direction:column; overflow:hidden;
+  width: 260px; flex-shrink: 0; background: var(--bg-alt);
+  border-right: 1px solid var(--border-default);
+  display: flex; flex-direction: column; overflow: hidden;
 }
 #sidebar-head {
-  padding:8px 10px; border-bottom:1px solid var(--border);
-  font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+  padding: 8px 10px; border-bottom: 1px solid var(--border-default);
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  font-weight: 700; color: var(--text-mention);
 }
 #match-search {
-  background:var(--bg3); border:0; border-bottom:1px solid var(--border);
-  color:var(--text-hi); font-family:inherit; font-size:11px;
-  padding:7px 10px; outline:none; width:100%;
+  background: var(--bg-default); border: 0; border-bottom: 1px solid var(--border-default);
+  color: var(--text-main); font-family: 'Marianne', Arial, sans-serif; font-size: 12px;
+  padding: 7px 10px; outline: none; width: 100%;
 }
-#match-search:focus { border-bottom-color:var(--accent); }
-#match-list { flex:1; overflow-y:auto; }
+#match-search:focus { border-bottom-color: var(--blue-france); }
+#match-list { flex: 1; overflow-y: auto; }
 .match-item {
-  padding:6px 10px; cursor:pointer;
-  border-bottom:1px solid rgba(26,46,69,.3);
-  display:flex; flex-direction:column; gap:2px;
+  padding: 6px 10px; cursor: pointer;
+  border-bottom: 1px solid var(--border-default);
+  display: flex; flex-direction: column; gap: 2px;
 }
-.match-item:hover  { background:rgba(255,179,0,.04); }
-.match-item.active { background:rgba(255,179,0,.08); border-left:2px solid var(--accent); }
-.mi-name { color:var(--text-hi); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.mi-comp { color:#3a6080; font-size:9px; }
+.match-item:hover { background: rgba(0,0,145,0.03); }
+.match-item.active { background: rgba(0,0,145,0.06); border-left: 3px solid var(--blue-france); }
+.mi-name { color: var(--text-main); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.mi-comp { color: var(--text-mention); font-size: 9px; }
 .mi-live {
-  display:inline-block; background:var(--green); color:#000;
-  font-size:7px; font-weight:700; padding:1px 4px; margin-right:4px; vertical-align:middle;
+  display: inline-block; background: var(--success); color: #fff;
+  font-size: 7px; font-weight: 700; padding: 1px 4px; margin-right: 4px; vertical-align: middle;
 }
 
-/* ── right panel ── */
-#right { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+/* right panel */
+#right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-/* ── markets panel ── */
+/* markets panel */
 #markets-panel {
-  background:var(--bg2); border-bottom:1px solid var(--border);
-  max-height:200px; overflow-y:auto; flex-shrink:0;
+  background: var(--bg-default); border-bottom: 1px solid var(--border-default);
+  max-height: 200px; overflow-y: auto; flex-shrink: 0;
 }
 .mkt-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(160px,1fr));
-  gap:8px; padding:8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px; padding: 8px;
 }
 .mkt-group {
-  background:var(--bg3); border:1px solid var(--border);
-  border-radius:3px; padding:6px 8px;
+  background: var(--bg-alt); border: 1px solid var(--border-default);
+  padding: 6px 8px;
 }
 .mkt-name {
-  font-size:9px; color:var(--text); text-transform:uppercase;
-  letter-spacing:.05em; margin-bottom:5px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size: 9px; color: var(--text-mention); text-transform: uppercase;
+  letter-spacing: .05em; margin-bottom: 5px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.mkt-sels { display:flex; flex-wrap:wrap; gap:4px; }
+.mkt-sels { display: flex; flex-wrap: wrap; gap: 4px; }
 .sel-btn {
-  background:var(--bg2); border:1px solid var(--border); color:var(--text-hi);
-  font-family:inherit; cursor:pointer;
-  display:flex; flex-direction:column; align-items:center; gap:1px;
-  padding:4px 8px; min-width:48px; border-radius:3px; transition:border-color .1s;
+  background: var(--bg-default); border: 1px solid var(--border-default); color: var(--text-main);
+  font-family: 'Marianne', Arial, sans-serif; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 4px 8px; min-width: 48px; transition: border-color .1s;
 }
-.sel-btn:hover:not(.suspended) { border-color:var(--accent); }
-.sel-btn.active { border-color:var(--accent); background:rgba(255,179,0,.08); }
-.sel-btn.suspended { opacity:.45; cursor:default; }
-.sel-btn.suspended .sb-odd { color:var(--red); font-size:9px; font-weight:400; }
-.sb-lbl { font-size:9px; color:var(--text); white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis; }
-.sb-odd { font-size:12px; font-weight:700; color:var(--text-hi); }
-.sel-btn.active .sb-lbl,
-.sel-btn.active .sb-odd { color:var(--accent); }
-.sel-btn.active.suspended .sb-odd { color:var(--red); }
-.mkt-placeholder { color:#2a4060; font-size:11px; padding:20px; text-align:center; }
+.sel-btn:hover:not(.suspended) { border-color: var(--blue-france); }
+.sel-btn.active { border-color: var(--blue-france); background: rgba(0,0,145,0.06); }
+.sel-btn.suspended { opacity: .45; cursor: default; }
+.sel-btn.suspended .sb-odd { color: var(--red-marianne); font-size: 9px; font-weight: 400; }
+.sb-lbl { font-size: 9px; color: var(--text-mention); white-space: nowrap; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+.sb-odd { font-size: 12px; font-weight: 700; color: var(--text-main); font-family: 'Roboto Mono', monospace; }
+.sel-btn.active .sb-lbl { color: var(--blue-france); }
+.sel-btn.active .sb-odd { color: var(--blue-france); }
+.sel-btn.active.suspended .sb-odd { color: var(--red-marianne); }
+.mkt-placeholder { color: var(--text-mention); font-size: 11px; padding: 20px; text-align: center; }
 
-@keyframes flash-green { 0%{box-shadow:0 0 0 2px var(--green)} 100%{box-shadow:none} }
-@keyframes flash-red   { 0%{box-shadow:0 0 0 2px var(--red)}   100%{box-shadow:none} }
-.sel-btn.flash-up   { animation:flash-green .6s ease-out; }
-.sel-btn.flash-down { animation:flash-red   .6s ease-out; }
+@keyframes flash-green { 0%{box-shadow:0 0 0 2px var(--success)} 100%{box-shadow:none} }
+@keyframes flash-red   { 0%{box-shadow:0 0 0 2px var(--red-marianne)} 100%{box-shadow:none} }
+.sel-btn.flash-up   { animation: flash-green .6s ease-out; }
+.sel-btn.flash-down { animation: flash-red   .6s ease-out; }
 
-/* ── chart area ── */
+/* chart area */
 #chart-info {
-  display:flex; gap:16px; align-items:center; padding:6px 14px;
-  background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0;
+  display: flex; gap: 16px; align-items: center; padding: 6px 14px;
+  background: var(--bg-alt); border-bottom: 1px solid var(--border-default); flex-shrink: 0;
 }
-.ci-label { color:#3a6080; font-size:10px; }
-.ci-val   { color:var(--text-hi); font-size:12px; font-weight:600; }
-.ci-val.up   { color:var(--green); }
-.ci-val.down { color:var(--red); }
+.ci-label { color: var(--text-mention); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.ci-val   { color: var(--text-main); font-size: 12px; font-weight: 700; font-family: 'Roboto Mono', monospace; }
+.ci-val.up   { color: var(--success); }
+.ci-val.down { color: var(--red-marianne); }
 #ci-live-badge {
-  background:var(--green); color:#000; font-size:8px;
-  font-weight:700; padding:1px 5px; display:none;
+  background: var(--success); color: #fff; font-size: 8px;
+  font-weight: 700; padding: 1px 5px; display: none;
 }
-#ci-count { margin-left:auto; color:#3a6080; font-size:10px; }
+#ci-count { margin-left: auto; color: var(--text-mention); font-size: 10px; }
 
 #debug-bar {
-  padding:3px 14px; background:#060a0f; border-bottom:1px solid #0c1420;
-  font-size:9px; color:#2a4060; flex-shrink:0; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis;
+  padding: 3px 14px; background: var(--bg-alt); border-bottom: 1px solid var(--border-default);
+  font-size: 9px; color: var(--text-mention); flex-shrink: 0; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-family: 'Roboto Mono', monospace;
 }
-#debug-bar b { color:#3a6080; }
+#debug-bar b { color: var(--blue-france); }
 
-#chart-wrap { flex:1; position:relative; padding:14px; overflow:hidden; }
-canvas#chart { display:block; width:100% !important; height:100% !important; }
+#chart-wrap { flex: 1; position: relative; padding: 14px; overflow: hidden; background: var(--bg-default); }
+canvas#chart { display: block; width: 100% !important; height: 100% !important; }
 #no-sel {
-  position:absolute; inset:0; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; gap:10px;
-  color:#2a4060; font-size:13px; pointer-events:none;
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  color: var(--text-mention); font-size: 13px; pointer-events: none;
 }
-#no-sel .hint { font-size:10px; color:#1a2e45; }
-::-webkit-scrollbar { width:4px; }
-::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:#2a4060; border-radius:2px; }
+#no-sel .hint { font-size: 10px; color: var(--border-default); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cccccc; border-radius: 2px; }
 </style>
 </head>
 <body>
 
-<div id="topbar">
-  <div class="logo">BETCLIC <span>/ Price Chart</span></div>
-  <span id="dot"></span>
-  <input id="api-url" class="ctrl" value="http://localhost:5001">
-  <button class="ctrl" onclick="reconnect()">↺ Connect</button>
-  <select id="sel-window" class="ctrl" onchange="redrawChart()">
-    <option value="300">5 min</option>
-    <option value="900">15 min</option>
-    <option value="3600" selected>1 hour</option>
-    <option value="86400">24 hours</option>
-    <option value="0">All</option>
-  </select>
-  <button class="ctrl" onclick="clearSeries()">✕ Clear series</button>
-</div>
+<header class="gov-header">
+  <div class="gov-brand-container">
+    <div class="marianne-logo">République<br>Française<br><span>——</span></div>
+    <div class="app-title-area">
+      <h1>Betclic — Graphique des cotes</h1>
+      <p>Historique des prix par sélection</p>
+    </div>
+    <div class="api-config">
+      <label style="font-size:12px;font-weight:700;white-space:nowrap;">Serveur :</label>
+      <input class="gov-input" id="api-url" value="http://localhost:5001" placeholder="URL du serveur" style="flex:1;min-width:180px">
+      <button class="gov-btn" onclick="reconnect()">Connecter</button>
+      <select id="sel-window" class="gov-select" onchange="redrawChart()">
+        <option value="300">5 min</option>
+        <option value="900">15 min</option>
+        <option value="3600" selected>1 heure</option>
+        <option value="86400">24 heures</option>
+        <option value="0">Tout</option>
+      </select>
+      <button class="gov-btn alt" onclick="clearSeries()">✕ Effacer</button>
+    </div>
+  </div>
+</header>
+
+<nav class="gov-tabs">
+  <a class="tab-btn" href="dashboard.html">Vue d'ensemble</a>
+  <a class="tab-btn active" href="chart.html">Graphique</a>
+  <a class="tab-btn" href="stream.html">Journal SSE</a>
+</nav>
 
 <div id="main">
   <div id="sidebar">
-    <div id="sidebar-head">Active matches</div>
-    <input id="match-search" placeholder="Filter matches…" oninput="filterMatches()">
+    <div id="sidebar-head">Matchs actifs</div>
+    <input id="match-search" placeholder="Filtrer les matchs…" oninput="filterMatches()">
     <div id="match-list"></div>
   </div>
   <div id="right">
     <div id="markets-panel" style="display:none">
-      <div id="markets-inner"><div class="mkt-placeholder">Loading…</div></div>
+      <div id="markets-inner"><div class="mkt-placeholder">Chargement…</div></div>
     </div>
     <div id="chart-info">
-      <div><span class="ci-label">Current </span><span class="ci-val" id="ci-cur">—</span></div>
+      <div><span class="ci-label">Actuel </span><span class="ci-val" id="ci-cur">—</span></div>
       <div><span class="ci-label">Min </span><span class="ci-val" id="ci-min">—</span></div>
       <div><span class="ci-label">Max </span><span class="ci-val" id="ci-max">—</span></div>
-      <div><span class="ci-label">&#916; </span><span class="ci-val" id="ci-delta">—</span></div>
-      <span id="ci-live-badge">LIVE</span>
+      <div><span class="ci-label">Δ </span><span class="ci-val" id="ci-delta">—</span></div>
+      <span id="ci-live-badge">DIRECT</span>
       <span id="ci-count">0 pts</span>
     </div>
-    <div id="debug-bar">no selection</div>
+    <div id="debug-bar">aucune sélection</div>
     <div id="chart-wrap">
       <canvas id="chart"></canvas>
       <div id="no-sel">
-        <div>Select a match, then a market / selection</div>
-        <div class="hint">Price history will appear here</div>
+        <div>Sélectionnez un match, puis un marché / une sélection</div>
+        <div class="hint">L'historique des prix s'affichera ici</div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// ─────────────────────────────────────────────────────────────────────────────
-// STATE
-// meta[mid]                    = { match, competition, date, live, … }
-// history[mid][mkt][sel]       = [{ts:ms, odd}, …]  (non-null only)
-// livePricesStore[mid][mkt][sel] = odd | null (null = suspended)
-// ─────────────────────────────────────────────────────────────────────────────
 const meta            = {};
 const history         = {};
 const livePricesStore = {};
@@ -220,9 +262,6 @@ let selectedSel = null;
 let chartObj    = null;
 let es          = null;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONNECT
-// ─────────────────────────────────────────────────────────────────────────────
 function getBase() { return document.getElementById('api-url').value.replace(/\/$/,''); }
 
 async function reconnect() {
@@ -264,18 +303,12 @@ async function reconnect() {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LIVE PRICE STORE
-// ─────────────────────────────────────────────────────────────────────────────
 function _storeLive(mid, mkt, sel, odd) {
   if (!livePricesStore[mid])       livePricesStore[mid]       = {};
   if (!livePricesStore[mid][mkt])  livePricesStore[mid][mkt]  = {};
   livePricesStore[mid][mkt][sel] = odd;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HISTORY HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
 function addPoint(mid, mkt, sel, odd, tsMs) {
   if (!history[mid])           history[mid]           = {};
   if (!history[mid][mkt])      history[mid][mkt]      = {};
@@ -288,9 +321,6 @@ function addPoint(mid, mkt, sel, odd, tsMs) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SSE HANDLERS
-// ─────────────────────────────────────────────────────────────────────────────
 function onPrice(msg) {
   const mid  = String(msg.match_id);
   const mkt  = msg.market;
@@ -330,9 +360,6 @@ function onSnapshot(msg) {
   if (selectedMid) renderMarketsGrid(selectedMid);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SIDEBAR
-// ─────────────────────────────────────────────────────────────────────────────
 function upsertItem(mid) {
   const m    = meta[mid] || {};
   const name = m.match || mid;
@@ -348,7 +375,7 @@ function upsertItem(mid) {
   el.dataset.comp = (m.competition || '').toLowerCase();
   el.innerHTML =
     '<div class="mi-name">' +
-      (m.live ? '<span class="mi-live">LIVE</span>' : '') +
+      (m.live ? '<span class="mi-live">DIRECT</span>' : '') +
       esc(name) +
     '</div>' +
     '<div class="mi-comp">' + esc(m.competition || '') + '</div>';
@@ -362,9 +389,6 @@ function filterMatches() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MATCH SELECTION
-// ─────────────────────────────────────────────────────────────────────────────
 function selectMatch(mid) {
   selectedMid = mid;
   selectedMkt = null;
@@ -381,9 +405,6 @@ function selectMatch(mid) {
   renderMarketsGrid(mid);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARKETS GRID
-// ─────────────────────────────────────────────────────────────────────────────
 function _btnKey(mid, mkt, sel) {
   return (mid + '_' + mkt + '_' + sel).replace(/[^a-zA-Z0-9]/g, '_');
 }
@@ -398,7 +419,7 @@ function renderMarketsGrid(mid) {
   const allMkts  = [...new Set([...Object.keys(liveData), ...Object.keys(histData)])];
 
   if (!allMkts.length) {
-    inner.innerHTML = '<div class="mkt-placeholder">Waiting for data…</div>';
+    inner.innerHTML = '<div class="mkt-placeholder">En attente de données…</div>';
     return;
   }
 
@@ -457,9 +478,6 @@ function _flashBtn(btn, dir) {
   setTimeout(() => btn.classList.remove('flash-up', 'flash-down'), 700);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SELECTION PICK
-// ─────────────────────────────────────────────────────────────────────────────
 async function pickSelection(mid, mkt, sel) {
   selectedMid = mid;
   selectedMkt = mkt;
@@ -482,9 +500,6 @@ async function pickSelection(mid, mkt, sel) {
   drawChart();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CHART
-// ─────────────────────────────────────────────────────────────────────────────
 function initChart() {
   try {
     if (chartObj) { chartObj.destroy(); chartObj = null; }
@@ -497,7 +512,7 @@ function initChart() {
       type: 'line',
       data: { datasets:[{
         label:'', data:[],
-        borderColor:'#ffb300', backgroundColor:'rgba(255,179,0,.06)',
+        borderColor:'#000091', backgroundColor:'rgba(0,0,145,.06)',
         borderWidth:1.5,
         pointRadius:2, pointHoverRadius:4,
         tension:0, fill:true,
@@ -508,8 +523,8 @@ function initChart() {
         plugins:{
           legend:{ display:false },
           tooltip:{
-            backgroundColor:'#0c1420', borderColor:'#1a2e45', borderWidth:1,
-            titleColor:'#8ab4d4', bodyColor:'#ffb300',
+            backgroundColor:'#f6f6f6', borderColor:'#e5e5e5', borderWidth:1,
+            titleColor:'#161616', bodyColor:'#000091',
             callbacks:{
               title: items => new Date(items[0].parsed.x)
                 .toLocaleTimeString('fr-FR',{hour12:false}),
@@ -521,19 +536,19 @@ function initChart() {
           x:{
             type:'time',
             time:{ unit:'minute', displayFormats:{ minute:'HH:mm', second:'HH:mm:ss' } },
-            grid:{ color:'rgba(26,46,69,.4)' },
-            ticks:{ color:'#2a6080', font:{ family:'Fira Mono', size:10 }, maxTicksLimit:10 },
+            grid:{ color:'#e5e5e5' },
+            ticks:{ color:'#666666', font:{ family:'Roboto Mono', size:10 }, maxTicksLimit:10 },
           },
           y:{
             position:'right',
-            grid:{ color:'rgba(26,46,69,.4)' },
-            ticks:{ color:'#2a6080', font:{ family:'Fira Mono', size:10 },
+            grid:{ color:'#e5e5e5' },
+            ticks:{ color:'#666666', font:{ family:'Roboto Mono', size:10 },
                     callback: v => v.toFixed(2) },
           }
         }
       }
     });
-    dbg('chart initialised OK');
+    dbg('chart initialisé OK');
   } catch(e) {
     dbg('ERROR in initChart: ' + e.message);
     chartObj = null;
@@ -604,9 +619,6 @@ function clearSeries() {
   resetChart();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INFO BAR
-// ─────────────────────────────────────────────────────────────────────────────
 function updateInfoBar(pts) {
   if (!pts || !pts.length) {
     ['ci-cur','ci-min','ci-max','ci-delta'].forEach(id => {
@@ -628,9 +640,6 @@ function updateInfoBar(pts) {
   document.getElementById('ci-count').textContent = pts.length + ' pts';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SQLITE HISTORY
-// ─────────────────────────────────────────────────────────────────────────────
 async function fetchDbHistory(mid, sel, mkt) {
   try {
     const url = `${getBase()}/history`
@@ -656,9 +665,6 @@ async function fetchDbHistory(mid, sel, mkt) {
   } catch(e) { console.warn('fetchDbHistory:', e); }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UTILS
-// ─────────────────────────────────────────────────────────────────────────────
 function dbg(msg) {
   const el = document.getElementById('debug-bar');
   if (el) el.textContent = new Date().toLocaleTimeString('fr-FR',{hour12:false}) + '  ' + msg;
@@ -674,9 +680,6 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOOT
-// ─────────────────────────────────────────────────────────────────────────────
 initChart();
 reconnect().then(() => {
   const paramMid = new URLSearchParams(location.search).get('match_id');
@@ -685,7 +688,6 @@ reconnect().then(() => {
     selectMatch(paramMid);
     return;
   }
-  // SSE may not have delivered meta yet — retry for a few seconds
   let tries = 0;
   const t = setInterval(() => {
     if (meta[paramMid] || livePricesStore[paramMid] || ++tries > 20) {

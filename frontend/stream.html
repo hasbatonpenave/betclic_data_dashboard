@@ -1,122 +1,181 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Betclic — Raw Stream</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Betclic — Journal SSE</title>
+<link href="https://fonts.googleapis.com/css2?family=Marianne:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-* { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --blue-france: #000091;
+  --red-marianne: #c9191e;
+  --text-main: #161616;
+  --text-mention: #666666;
+  --bg-default: #ffffff;
+  --bg-alt: #f6f6f6;
+  --border-default: #e5e5e5;
+  --success: #1f8d49;
+  --warning: #d64d00;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background:#060a0f; color:#8ab4d4;
-  font-family:'Fira Mono','Cascadia Code','Consolas',monospace;
-  font-size:12px; height:100vh; display:flex; flex-direction:column;
-  overflow:hidden;
+  background: var(--bg-default); color: var(--text-main);
+  font-family: 'Marianne', Arial, sans-serif; font-size: 14px; line-height: 1.5;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
 }
-
-/* ── TOP BAR ── */
-#bar {
-  display:flex; align-items:center; gap:10px; padding:8px 14px;
-  background:#0c1420; border-bottom:1px solid #1a2e45;
-  flex-shrink:0; flex-wrap:wrap;
+.gov-header {
+  border-bottom: 2px solid var(--blue-france);
+  background: var(--bg-default); padding: 12px 24px; flex-shrink: 0;
 }
-.title { color:#ffb300; font-weight:700; font-size:13px; letter-spacing:.06em; }
-.title span { color:#8ab4d4; font-weight:400; font-size:11px; }
-
-#dot { width:8px; height:8px; border-radius:50%; background:#2a4060; flex-shrink:0; }
-#dot.live { background:#00e676; box-shadow:0 0 6px #00e676; animation:pulse 2s infinite; }
-#dot.err  { background:#ff4f4f; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-#dot-label { font-size:11px; }
-
-#bar input {
-  background:#111d2e; border:1px solid #1a2e45; color:#cde4f7;
-  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; width:190px;
+.gov-brand-container { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.marianne-logo {
+  border-left: 3px solid var(--text-main); padding-left: 8px;
+  font-weight: 700; text-transform: uppercase; font-size: 11px;
+  letter-spacing: 0.05em; line-height: 1.1;
 }
-#bar input:focus { border-color:#ffb300; }
-
-.b {
-  background:#111d2e; border:1px solid #1a2e45; color:#8ab4d4;
-  font-family:inherit; font-size:11px; padding:4px 10px; cursor:pointer;
+.marianne-logo span { color: var(--red-marianne); }
+.app-title-area { flex: 1; padding-left: 16px; }
+.app-title-area h1 { font-size: 16px; font-weight: 700; color: var(--blue-france); }
+.app-title-area p { font-size: 11px; color: var(--text-mention); }
+.api-config {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-alt); padding: 6px 10px; border: 1px solid var(--border-default); flex-wrap: wrap;
 }
-.b:hover { border-color:#ffb300; color:#cde4f7; }
-
-#bar select {
-  background:#111d2e; border:1px solid #1a2e45; color:#8ab4d4;
-  font-family:inherit; font-size:11px; padding:4px 8px; outline:none; cursor:pointer;
+.gov-input {
+  background: var(--bg-default); color: var(--text-main); border: 1px solid #858585;
+  padding: 5px 10px; font-family: 'Roboto Mono', monospace; font-size: 12px; outline: none;
 }
-#bar select:focus { border-color:#ffb300; }
-
-#counter { margin-left:auto; font-size:11px; color:#3a6080; white-space:nowrap; }
-#eps     { color:#ffb300; font-weight:600; }
-
-/* ── FEED ── */
-#feed-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
-#feed-wrap::after {
-  content:''; position:absolute; bottom:0; left:0; right:0; height:30px;
-  background:linear-gradient(transparent, #060a0f); pointer-events:none;
+.gov-input:focus { outline: 2px solid var(--blue-france); }
+.gov-btn {
+  background: var(--blue-france); color: #fff; border: none; padding: 5px 12px;
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Marianne', Arial, sans-serif;
 }
-#feed { flex:1; overflow-y:scroll; padding:4px 0; }
+.gov-btn:hover { background: #1b1bbf; }
+.gov-btn.alt { background: transparent; color: var(--blue-france); border: 1px solid var(--blue-france); }
+.gov-btn.alt:hover { background: rgba(0,0,145,0.05); }
+.gov-select {
+  background: var(--bg-default); color: var(--text-main); border: 1px solid #858585;
+  padding: 5px 10px; font-family: 'Marianne', Arial, sans-serif; font-size: 12px;
+  outline: none; cursor: pointer;
+}
+.gov-select:focus { outline: 2px solid var(--blue-france); }
+.gov-tabs {
+  background: var(--bg-alt); display: flex;
+  border-bottom: 1px solid var(--border-default); padding: 0 24px; flex-shrink: 0;
+}
+.tab-btn {
+  background: transparent; border: none; color: var(--text-main);
+  padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+  border-bottom: 3px solid transparent; text-decoration: none; display: inline-block;
+  font-family: 'Marianne', Arial, sans-serif;
+}
+.tab-btn:hover { background: rgba(0,0,145,0.05); }
+.tab-btn.active { border-bottom-color: var(--blue-france); color: var(--blue-france); }
+.status-bar {
+  background: #eeeeee; padding: 6px 24px; font-size: 12px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--border-default); flex-shrink: 0;
+}
+#dot { width: 8px; height: 8px; border-radius: 50%; background: #858585; flex-shrink: 0; }
+#dot.live { background: var(--success); }
+#dot.err  { background: var(--red-marianne); }
+.toolbar {
+  display: flex; gap: 8px; align-items: center; padding: 10px 24px;
+  background: var(--bg-alt); border-bottom: 1px solid var(--border-default);
+  flex-wrap: wrap; flex-shrink: 0;
+}
+.counter { font-size: 12px; color: var(--text-mention); margin-left: auto; white-space: nowrap; }
+
+/* feed */
+.feed-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 16px 24px; }
+#feed {
+  flex: 1; overflow-y: scroll;
+  background: #1e1e1e; color: #f4f4f4;
+  font-family: 'Roboto Mono', monospace; font-size: 12px;
+  padding: 4px 0; border-radius: 2px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+}
 
 .row {
-  display:grid;
-  grid-template-columns: 90px 76px 170px 1fr;
-  align-items:baseline;
-  padding:3px 0;
-  border-bottom:1px solid rgba(26,46,69,.2);
-  white-space:nowrap; overflow:hidden;
+  display: grid;
+  grid-template-columns: 100px 80px 180px 1fr;
+  align-items: baseline;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(45,45,45,.8);
+  white-space: nowrap; overflow: hidden;
+  font-size: 11px;
 }
-.row:hover { background:rgba(255,179,0,.03); }
+.row:hover { background: rgba(255,255,255,0.03); }
 
-.c-ts   { color:#2a4060; font-size:10px; padding:0 8px; }
-.c-bdg  { padding:0 4px; }
-.c-mid  { color:#6ec6e6; font-size:11px; padding:0 10px;
-          overflow:hidden; text-overflow:ellipsis; }
-.c-raw  { color:#5a8aaa; font-size:11px; padding-right:12px;
-          overflow:hidden; text-overflow:ellipsis; }
+.c-ts   { color: #858585; font-size: 10px; padding: 0 8px; }
+.c-bdg  { padding: 0 4px; }
+.c-mid  { color: #8ab4f4; font-size: 11px; padding: 0 10px;
+          overflow: hidden; text-overflow: ellipsis; }
+.c-raw  { color: #a0a0a0; font-size: 11px; padding-right: 12px;
+          overflow: hidden; text-overflow: ellipsis; }
 
 /* badges */
 .badge {
-  display:inline-block; font-size:9px; font-weight:700;
-  padding:1px 5px; vertical-align:middle;
+  display: inline-block; font-size: 9px; font-weight: 700;
+  padding: 1px 5px; vertical-align: middle;
 }
-.badge.price    { background:#ffb300; color:#000; }
-.badge.snapshot { background:#0096ff; color:#fff; }
-.badge.live     { background:#00e676; color:#000; }
+.badge.price    { color: #00cbc6; border: 1px solid rgba(0,203,198,.4); }
+.badge.snapshot { color: #69db7c; border: 1px solid rgba(105,219,124,.4); }
+.badge.live     { color: #ff6b6b; border: 1px solid rgba(255,107,107,.4); }
 
-/* row tint */
-.row.is-live .c-mid { color:#00e676; }
+/* live row tint */
+.row.is-live .c-mid { color: #69db7c; }
 
-/* scrollbar */
-::-webkit-scrollbar { width:4px; }
-::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:#2a4060; border-radius:2px; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 2px; }
 </style>
 </head>
 <body>
 
-<div id="bar">
-  <div class="title">BETCLIC <span>/ raw stream</span></div>
+<header class="gov-header">
+  <div class="gov-brand-container">
+    <div class="marianne-logo">République<br>Française<br><span>——</span></div>
+    <div class="app-title-area">
+      <h1>Betclic — Journal d'Audit SSE</h1>
+      <p>Flux d'événements en temps réel</p>
+    </div>
+    <div class="api-config">
+      <label style="font-size:12px;font-weight:700;white-space:nowrap;">Serveur :</label>
+      <input class="gov-input" id="api" value="http://localhost:5001" placeholder="URL du serveur" style="flex:1;min-width:200px">
+      <button class="gov-btn" onclick="reconnect()">Connecter</button>
+    </div>
+  </div>
+</header>
+
+<nav class="gov-tabs">
+  <a class="tab-btn" href="dashboard.html">Vue d'ensemble</a>
+  <a class="tab-btn" href="chart.html">Graphique</a>
+  <a class="tab-btn active" href="stream.html">Journal SSE</a>
+</nav>
+
+<div class="status-bar">
   <span id="dot"></span>
   <span id="dot-label">—</span>
-  <input id="api" value="http://localhost:5001">
-  <button class="b" onclick="reconnect()">↺ Connect</button>
-  <button class="b" id="btn-pause" onclick="togglePause()">⏸ Pause</button>
-  <select id="filter">
-    <option value="all">All events</option>
-    <option value="price">price only</option>
-    <option value="snapshot">snapshot only</option>
-  </select>
-  <select id="market-filter">
-    <option value="all">All markets</option>
-    <option value="1X2">1X2 only</option>
-    <option value="O/U">O/U only</option>
-  </select>
-  <button class="b" onclick="clearFeed()">✕ Clear</button>
-  <div id="counter">
-    <span id="eps">0</span>/s &nbsp;|&nbsp; <span id="total">0</span> events
-  </div>
+  <span class="counter" id="counter"><span id="eps">0</span>/s &nbsp;|&nbsp; <span id="total">0</span> événements</span>
 </div>
 
-<div id="feed-wrap">
+<div class="toolbar">
+  <button class="gov-btn" id="btn-pause" onclick="togglePause()">Pause</button>
+  <button class="gov-btn alt" onclick="clearFeed()">Purger</button>
+  <select id="filter" class="gov-select">
+    <option value="all">Tous les événements</option>
+    <option value="price">Prix seulement</option>
+    <option value="snapshot">Snapshot seulement</option>
+  </select>
+  <select id="market-filter" class="gov-select">
+    <option value="all">Tous les marchés</option>
+    <option value="1X2">1X2 seulement</option>
+    <option value="O/U">O/U seulement</option>
+  </select>
+</div>
+
+<div class="feed-wrap">
   <div id="feed"></div>
 </div>
 
@@ -167,7 +226,6 @@ function appendRow(msg) {
   const ts  = now.toLocaleTimeString('fr-FR', {hour12:false}) + '.' +
               String(now.getMilliseconds()).padStart(3,'0');
 
-  // Badge
   let badge;
   if (msg.type === 'price') {
     badge = `<span class="badge price">PRICE</span>`;
@@ -175,19 +233,17 @@ function appendRow(msg) {
     const cnt = Object.keys(msg.prices || {}).length;
     badge = `<span class="badge snapshot">SNAP·${cnt}</span>`;
   } else {
-    badge = `<span class="badge" style="background:#2a4060;color:#8ab4d4">${esc(msg.type||'?')}</span>`;
+    badge = `<span class="badge" style="border:1px solid #858585;color:#858585">${esc(msg.type||'?')}</span>`;
   }
 
-  // Match label
   const matchLabel = (msg.meta && msg.meta.match) ? msg.meta.match : (msg.match_id || '');
 
-  // Odds summary
   let rawStr;
   if (msg.type === 'price' && msg.odds) {
     rawStr = `[${esc(msg.market||'')}] ` +
       Object.entries(msg.odds).map(([k,v]) => `${esc(k)}:${v}`).join('  ');
   } else if (msg.type === 'snapshot') {
-    rawStr = `snapshot — ${Object.keys(msg.prices||{}).length} matches in memory`;
+    rawStr = `snapshot — ${Object.keys(msg.prices||{}).length} matchs en mémoire`;
   } else {
     rawStr = JSON.stringify(msg).slice(0, 280);
   }
@@ -204,15 +260,15 @@ function appendRow(msg) {
 function clearFeed()   { document.getElementById('feed').innerHTML = ''; }
 function togglePause() {
   paused = !paused;
-  document.getElementById('btn-pause').textContent = paused ? '▶ Resume' : '⏸ Pause';
+  document.getElementById('btn-pause').textContent = paused ? 'Reprendre' : 'Pause';
 }
 
 function setStatus(s) {
   const dot = document.getElementById('dot');
   const lbl = document.getElementById('dot-label');
-  if (s === 'live')        { dot.className = 'live'; lbl.textContent = 'LIVE'; }
-  else if (s === 'err')    { dot.className = 'err';  lbl.textContent = 'ERR'; }
-  else                     { dot.className = '';     lbl.textContent = 'connecting…'; }
+  if (s === 'live')        { dot.className = 'live'; lbl.textContent = 'Connecté'; }
+  else if (s === 'err')    { dot.className = 'err';  lbl.textContent = 'Erreur'; }
+  else                     { dot.className = '';     lbl.textContent = 'connexion...'; }
 }
 
 function esc(s) {
